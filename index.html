@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="CertiForge — privacy-first bulk certificate designer and generator.">
+  <title>CertiForge — Certificate Studio</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/editor.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">CF</div>
+      <div><strong>CertiForge</strong><span>Certificate Studio</span></div>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" id="newProjectBtn">New</button>
+      <button class="btn ghost" id="openProjectBtn">Open</button>
+      <button class="btn ghost" id="saveProjectBtn">Save</button>
+      <button class="btn primary" id="generateTopBtn">Generate</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar left-panel">
+      <section>
+        <div class="section-title">WORKFLOW</div>
+        <button class="nav-item active" data-step="templates"><span>01</span> Template</button>
+        <button class="nav-item" data-step="editor"><span>02</span> Design</button>
+        <button class="nav-item" data-step="data"><span>03</span> Participants</button>
+        <button class="nav-item" data-step="mapping"><span>04</span> Mapping</button>
+        <button class="nav-item" data-step="preview"><span>05</span> Preview</button>
+        <button class="nav-item" data-step="generate"><span>06</span> Generate</button>
+      </section>
+
+      <section class="sidebar-bottom">
+        <div class="privacy-card">
+          <div class="privacy-icon">✓</div>
+          <div><strong>Local-first</strong><p>Your participant data is processed in this browser.</p></div>
+        </div>
+        <button class="nav-item" id="helpBtn"><span>?</span> Help</button>
+      </section>
+    </aside>
+
+    <section class="main-panel">
+      <div id="app"></div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+<input id="projectFileInput" type="file" accept=".certiforge,.json" hidden>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
