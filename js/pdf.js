@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { getTemplate } from './templates.js';
 import { resolveText, formatId } from './variables.js';
+import { generateQRDataUrl } from './qrcode.js';
 
 const _svgCache = new Map();
 
@@ -39,9 +40,12 @@ export function renderCertificateSVG(row, index) {
       lines.forEach((line, i) => {
         dynamicParts += `<text data-el="${e.id}" x="${e.x}" y="${start + i * lh}" text-anchor="middle" dominant-baseline="middle" font-family="${esc(e.font || "Arial")}" font-size="${e.size}" font-weight="${e.weight || 400}" fill="${e.color || "#17191d"}">${esc(line)}</text>`;
       });
-    } else if (e.type === "qr" && e._qrDataUrl) {
+    } else if (e.type === "qr") {
       const sz = e.w || 80;
-      dynamicParts += `<image data-el="${e.id}" href="${e._qrDataUrl}" x="${e.x - sz / 2}" y="${e.y - sz / 2}" width="${sz}" height="${sz}" preserveAspectRatio="xMidYMid meet"/>`;
+      const rawText = e.text || "{{VERIFY_URL}}";
+      const resolved = resolveText(rawText, data, index);
+      const qrDataUrl = generateQRDataUrl(resolved, 200);
+      dynamicParts += `<image data-el="${e.id}" href="${qrDataUrl}" x="${e.x - sz / 2}" y="${e.y - sz / 2}" width="${sz}" height="${sz}" preserveAspectRatio="xMidYMid meet"/>`;
     }
   });
   return skeleton + dynamicParts + '</svg>';

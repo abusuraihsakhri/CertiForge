@@ -118,22 +118,32 @@ Future:
 - unsupported characters
 - blank rows
 
-## 9. Certificate IDs
+## 9. Certificate IDs and Verification
 
 Default:
 
 CONF-2026-0001
 
+Automatic Conference Acronym Derivation:
+- `extractConferencePrefix(name)` parses event title and extracts uppercase acronym, skipping prepositions and ordinals (e.g. "International Conference on Machine Learning 2026" -> `ICML-2026-0001`).
+- `extractConferenceYear(name)` extracts the 4-digit event year.
+
 Configuration:
-- prefix
+- prefix (editable or auto-derived via ⚡ From Event button)
 - year
 - starting number
 - digit width
 - separator
 
-Certificate ID is exposed through:
+Exposed template variables:
+- `{{CERTIFICATE_ID}}`
+- `{{VERIFY_URL}}` (cryptographically signed portal URL for QR code)
+- `{{VERIFY_SIG}}` (SHA-256 tamper-detection digest)
 
-{{CERTIFICATE_ID}}
+Verification Portal:
+- Standalone client-side portal (`verify.html`)
+- Instant verification via scanned URL parameters or manual ID search
+- Offline manifest export (`verification-registry.json`)
 
 ## 10. PDF generation
 

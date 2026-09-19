@@ -4,6 +4,7 @@ import { renderCanvas } from './canvas.js';
 import { pushHistory, undo, redo } from './history.js';
 import { escapeHTML } from './utils.js';
 import { generateQRDataUrl } from './qrcode.js';
+import { resolveText } from './variables.js';
 
 let _lastRenderedElId = null;
 
@@ -18,8 +19,9 @@ export function addTextElement() {
 
 export function addQRElement() {
   const t = getTemplate(state.templateId);
-  const e = { id: "qr_" + Date.now(), type: "qr", text: "https://certiforge.app/verify?id={{CERTIFICATE_ID}}", x: t.page.width - 120, y: t.page.height - 120, w: 80, h: 80, color: "#000000", bg: "#ffffff" };
-  e._qrDataUrl = generateQRDataUrl(e.text, 200);
+  const e = { id: "qr_" + Date.now(), type: "qr", text: "{{VERIFY_URL}}", x: t.page.width - 120, y: t.page.height - 120, w: 80, h: 80, color: "#000000", bg: "#ffffff" };
+  const sampleUrl = resolveText(e.text);
+  e._qrDataUrl = generateQRDataUrl(sampleUrl, 200);
   e._svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><image href="${e._qrDataUrl}" width="200" height="200"/></svg>`;
   state.elements.push(e);
   state.selectedElement = e.id;
@@ -197,7 +199,9 @@ export function renderProperties() {
     });
   } else if (e.type === "qr") {
     box.innerHTML = `<div class="element-properties">
-      <div class="field"><label>QR Content / URL</label><textarea id="propQrText" rows="3"></textarea></div>
+      <div class="field"><label>QR Content / URL</label><textarea id="propQrText" rows="3"></textarea>
+        <p class="mini-help" style="margin-top:3px">Use <code>{{VERIFY_URL}}</code> for tamper-proof verification, or custom URL with <code>{{CERTIFICATE_ID}}</code>.</p>
+      </div>
       <div class="prop-row"><div class="field"><label>X</label><input id="propX" type="number" value="${e.x}"></div><div class="field"><label>Y</label><input id="propY" type="number" value="${e.y}"></div></div>
       <div class="prop-row"><div class="field"><label>Size</label><input id="propW" type="number" min="30" max="300" value="${e.w || 80}"></div></div>
       <div class="field"><label>Color</label><input id="propColor" class="color-input" type="color" value="${e.color || '#000000'}"></div>
@@ -210,7 +214,7 @@ export function renderProperties() {
       e.y = +document.getElementById("propY").value;
       e.w = Math.max(30, +document.getElementById("propW").value);
       e.color = document.getElementById("propColor").value;
-      e._qrDataUrl = generateQRDataUrl(e.text, 200);
+      e._qrDataUrl = generateQRDataUrl(resolveText(e.text), 200);
       e._svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><image href="${e._qrDataUrl}" width="200" height="200"/></svg>`;
       const canvas = document.getElementById("editorCanvas");
       if (canvas) renderCanvas(canvas, null, true);

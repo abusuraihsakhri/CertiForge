@@ -1,7 +1,8 @@
-const CACHE = 'certiforge-v0.3.2';
+const CACHE = 'certiforge-v0.3.3';
 const ASSETS = [
   './',
   './index.html',
+  './verify.html',
   './manifest.json',
   './css/main.css',
   './css/editor.css',
@@ -9,6 +10,7 @@ const ASSETS = [
   './vendor/xlsx.full.min.js',
   './vendor/jspdf.umd.min.js',
   './vendor/jszip.min.js',
+  './vendor/qrcode.min.js',
   './js/main.js',
   './js/state.js',
   './js/templates.js',

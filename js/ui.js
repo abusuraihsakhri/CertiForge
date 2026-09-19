@@ -1,8 +1,8 @@
 import { state } from './state.js';
 import { templates, getTemplate } from './templates.js';
 import { templateSVG, loadTemplate } from './template-loader.js';
-import { variableKeys } from './variables.js';
-import { escapeHTML } from './utils.js';
+import { variableKeys, columnToken, extractConferencePrefix, extractConferenceYear, formatId } from './variables.js';
+import { safeFilename, escapeHTML, toast } from './utils.js';
 import { renderCanvas } from './canvas.js';
 import { renderCurrentEditor, addTextElement, addQRElement, addImageFile, loadCustomFont } from './editor.js';
 import { parseSpreadsheet } from './spreadsheet.js';
@@ -11,9 +11,7 @@ import { generateAll } from './generator.js';
 import { makeZip } from './zip.js';
 import { saveProject, loadProjectFile } from './project.js';
 import { undo, redo } from './history.js';
-import { toast } from './utils.js';
 import { mappedRows } from './mapping.js';
-import { columnToken } from './variables.js';
 import { renderCertificateSVG } from './pdf.js';
 
 export function updateGenerationProgress(done, total, startTime, totalRows) {
@@ -111,7 +109,15 @@ function renderMapping(app) {
   <div class="card panel"><h2>Conference-wide details</h2><div class="form-grid"><div class="field"><label>Event</label><input data-global="EVENT" value="${escapeHTML(gf.EVENT || "")}"></div><div class="field"><label>Date</label><input data-global="DATE" value="${escapeHTML(gf.DATE || "")}"></div><div class="field"><label>Venue</label><input data-global="VENUE" value="${escapeHTML(gf.VENUE || "")}"></div><div class="field"><label>Organization</label><input data-global="ORGANIZATION" value="${escapeHTML(gf.ORGANIZATION || "")}"></div></div></div>
   <div style="height:16px"></div><div class="card panel"><h2>Column mapping</h2><div class="mapping-grid">${variableKeys.filter(v => !["CERTIFICATE_ID", "YEAR"].includes(v)).map(v => `<div class="map-card ${v === "NAME" ? "required-map" : ""}"><strong>{{${v}}}${v === "NAME" ? ' <span class="required">required</span>' : ""}</strong><div class="arrow">↓</div><select data-map="${v}"><option value="">${["EVENT", "DATE", "VENUE", "ORGANIZATION"].includes(v) ? "Use conference-wide value" : "Not mapped"}</option>${options}</select></div>`).join("")}</div><div class="notice" style="margin-top:14px"><b>Direct spreadsheet variables:</b> every column is also available as a token. ${customTokens}</div></div></div>`;
   app.querySelectorAll("[data-map]").forEach(s => { s.value = state.mappings[s.dataset.map] || ""; s.onchange = () => { state.mappings[s.dataset.map] = s.value; }; });
-  app.querySelectorAll("[data-global]").forEach(i => i.oninput = () => state.globalFields[i.dataset.global] = i.value);
+  app.querySelectorAll("[data-global]").forEach(i => i.oninput = () => {
+    state.globalFields[i.dataset.global] = i.value;
+    if (i.dataset.global === "EVENT" && i.value) {
+      if (!state.certificate._customPrefix || state.certificate.prefix === "CONF") {
+        state.certificate.prefix = extractConferencePrefix(i.value);
+        state.certificate.year = extractConferenceYear(i.value);
+      }
+    }
+  });
   document.getElementById("toPreview").onclick = () => { if (!state.mappings.NAME) { toast("Map a spreadsheet column to {{NAME}} first."); return; } go("preview"); };
 }
 
@@ -132,23 +138,102 @@ function renderGenerate(app) {
   if (!state.mappings.NAME) { go("mapping"); return; }
   const val = validateRows();
   app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">06 / GENERATE</div><h1>Generate your certificate batch.</h1><p class="lead">Rows without a participant name are skipped. Duplicate filenames are automatically suffixed.</p></div></div>
-  <div class="generate-grid"><div class="card panel"><h2>Certificate numbering</h2><div class="form-grid"><div class="field"><label>Prefix</label><input id="prefix"></div><div class="field"><label>Year</label><input id="year"></div><div class="field"><label>Starting number</label><input id="start" type="number"></div><div class="field"><label>Digits</label><input id="digits" type="number" min="1" max="8"></div></div><div class="field" style="margin-top:14px"><label>Filename pattern</label><input id="filename"></div><div class="field" style="margin-top:14px"><label>PDF quality</label><select id="rasterScale"><option value="1">Standard</option><option value="2">High (recommended)</option><option value="3">Very high</option></select></div><p class="mini-help" style="margin-top:9px">Example: {{CERTIFICATE_ID}}_{{NAME}}.pdf</p></div>
+  <div class="generate-grid"><div class="card panel"><h2>Certificate numbering</h2>
+    <div class="form-grid">
+      <div class="field">
+        <div style="display:flex;justify-content:space-between;align-items:center"><label>Prefix</label><button type="button" id="derivePrefixBtn" style="font-size:11px;font-weight:700;background:none;border:none;color:var(--accent2);cursor:pointer;padding:0">⚡ From Event</button></div>
+        <input id="prefix">
+      </div>
+      <div class="field"><label>Year</label><input id="year"></div>
+      <div class="field"><label>Starting number</label><input id="start" type="number"></div>
+      <div class="field"><label>Digits</label><input id="digits" type="number" min="1" max="8"></div>
+    </div>
+    <p class="mini-help" style="margin-top:9px">Sample ID: <strong id="sampleIdText" style="color:var(--ink)"></strong></p>
+    <div class="field" style="margin-top:14px"><label>Filename pattern</label><input id="filename"></div>
+    <div class="field" style="margin-top:14px"><label>PDF quality</label><select id="rasterScale"><option value="1">Standard</option><option value="2">High (recommended)</option><option value="3">Very high</option></select></div>
+    <p class="mini-help" style="margin-top:9px">Example: {{CERTIFICATE_ID}}_{{NAME}}.pdf</p>
+  </div>
   <div class="card panel"><h2>Batch summary</h2><div class="metric-grid"><div class="metric"><strong>${val.valid}</strong><span>PDF FILES</span></div><div class="metric"><strong>${val.missingName}</strong><span>ROWS SKIPPED</span></div><div class="metric"><strong>${val.duplicateNames}</strong><span>DUPLICATE NAMES</span></div></div><div style="height:20px"></div><button class="btn primary" id="generateBtn" style="width:100%;padding:13px">GENERATE ALL CERTIFICATES</button><div style="height:15px"></div><div class="progress"><div id="progressBar"></div></div><div id="progressText" class="mini-help" style="margin-top:8px">Ready.</div></div></div>
   <div style="height:16px"></div><div id="resultCard"></div></div>`;
+
   const refs = { prefix: document.getElementById("prefix"), year: document.getElementById("year"), start: document.getElementById("start"), digits: document.getElementById("digits"), filename: document.getElementById("filename"), rasterScale: document.getElementById("rasterScale") };
   refs.prefix.value = state.certificate.prefix; refs.year.value = state.certificate.year; refs.start.value = state.certificate.start; refs.digits.value = state.certificate.digits; refs.filename.value = state.settings.filename; refs.rasterScale.value = String(state.settings.rasterScale || 2);
-  const sync = () => { state.certificate.prefix = refs.prefix.value.trim() || "CONF"; state.certificate.year = refs.year.value.trim() || String(new Date().getFullYear()); state.certificate.start = Math.max(0, +refs.start.value || 1); state.certificate.digits = Math.min(8, Math.max(1, +refs.digits.value || 4)); state.settings.filename = refs.filename.value || "{{CERTIFICATE_ID}}_{{NAME}}.pdf"; state.settings.rasterScale = +refs.rasterScale.value || 2; };
-  Object.values(refs).forEach(x => x.onchange = sync);
+
+  const updatePreview = () => {
+    const el = document.getElementById("sampleIdText");
+    if (el) el.textContent = formatId(state.certificate.start || 1);
+  };
+
+  const sync = (isManualPrefix = false) => {
+    state.certificate.prefix = refs.prefix.value.trim() || "CONF";
+    if (isManualPrefix) state.certificate._customPrefix = true;
+    state.certificate.year = refs.year.value.trim() || String(new Date().getFullYear());
+    state.certificate.start = Math.max(0, +refs.start.value || 1);
+    state.certificate.digits = Math.min(8, Math.max(1, +refs.digits.value || 4));
+    state.settings.filename = refs.filename.value || "{{CERTIFICATE_ID}}_{{NAME}}.pdf";
+    state.settings.rasterScale = +refs.rasterScale.value || 2;
+    updatePreview();
+  };
+
+  refs.prefix.oninput = () => sync(true);
+  ["year", "start", "digits", "filename", "rasterScale"].forEach(k => refs[k].oninput = () => sync(false));
+  updatePreview();
+
+  const deriveBtn = document.getElementById("derivePrefixBtn");
+  if (deriveBtn) {
+    deriveBtn.onclick = () => {
+      const derived = extractConferencePrefix(state.globalFields.EVENT || state.projectName);
+      const year = extractConferenceYear(state.globalFields.EVENT || state.projectName);
+      refs.prefix.value = derived;
+      refs.year.value = year;
+      sync(true);
+      toast(`Prefix set to "${derived}" from event name.`);
+    };
+  }
+
   const generate = document.getElementById("generateBtn");
   generate.onclick = async () => {
-    sync(); generate.disabled = true; document.getElementById("resultCard").innerHTML = "";
+    sync(false); generate.disabled = true; document.getElementById("resultCard").innerHTML = "";
     try {
       const result = await generateAll();
-      document.getElementById("resultCard").innerHTML = `<div class="card panel"><h2>Generation complete</h2><p class="lead">${result.files.length} PDFs are ready${result.skipped ? `; ${result.skipped} invalid row(s) were skipped` : ""}.</p><div style="height:15px"></div><button class="btn primary" id="downloadZip">DOWNLOAD ZIP</button></div>`;
+      document.getElementById("resultCard").innerHTML = `<div class="card panel">
+        <h2>Generation complete</h2>
+        <p class="lead">${result.files.length} PDFs are ready${result.skipped ? `; ${result.skipped} invalid row(s) were skipped` : ""}.</p>
+        <div style="height:15px"></div>
+        <div class="toolbar">
+          <button class="btn primary" id="downloadZip">DOWNLOAD ZIP (${result.files.length} PDFs)</button>
+          <button class="btn" id="downloadRegistry">DOWNLOAD VERIFICATION REGISTRY (JSON)</button>
+          <a href="verify.html" target="_blank" class="btn ghost">OPEN VERIFICATION PORTAL ↗</a>
+        </div>
+      </div>`;
+
       document.getElementById("downloadZip").onclick = async () => {
-        try { const blob = await makeZip(result.files); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "CertiForge-certificates.zip"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); }
+        try { const blob = await makeZip(result.files); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${safeFilename(state.certificate.prefix || "CertiForge")}-certificates.zip`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); }
         catch (e) { toast(e.message); }
       };
+
+      const regBtn = document.getElementById("downloadRegistry");
+      if (regBtn) {
+        regBtn.onclick = () => {
+          try {
+            const data = JSON.stringify({
+              project: state.projectName,
+              event: state.globalFields.EVENT,
+              organization: state.globalFields.ORGANIZATION,
+              year: state.certificate.year,
+              generatedAt: new Date().toISOString(),
+              totalCertificates: (state.registry || []).length,
+              certificates: state.registry || []
+            }, null, 2);
+            const blob = new Blob([data], { type: "application/json" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `${safeFilename(state.certificate.prefix || "conference")}-verification-registry.json`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+          } catch (e) { toast(e.message); }
+        };
+      }
     } catch (e) { toast(e.message); generate.disabled = false; }
   };
 }

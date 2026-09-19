@@ -1,3 +1,6 @@
+const fs = require('fs');
+eval(fs.readFileSync(__dirname + '/../vendor/qrcode.min.js', 'utf8'));
+
 global.window = global;
 global.document = {
   createElement: () => ({
@@ -32,7 +35,42 @@ function assert(x, msg) { if (!x) throw new Error(msg); }
   const { renderCertificateSVG } = await import('../js/pdf.js');
   const { generateAll } = await import('../js/generator.js');
   const { loadProjectFile } = await import('../js/project.js');
+  const {
+    extractConferencePrefix,
+    extractConferenceYear,
+    computeVerificationSignature,
+    getVerificationUrl,
+    resolveText
+  } = await import('../js/variables.js');
 
+  // 1. Test Conference Prefix & Year Derivation
+  assert(extractConferencePrefix('International Conference on Machine Learning 2026') === 'ICML', 'ICML prefix failed');
+  assert(extractConferenceYear('International Conference on Machine Learning 2026') === '2026', 'Year extraction failed');
+  assert(extractConferencePrefix('DevOps World 2026') === 'DW', 'DW prefix failed');
+  assert(extractConferencePrefix('PyCon 2026') === 'PYCON', 'PyCon prefix failed');
+  assert(extractConferencePrefix('10th International Conference on Computational Science') === 'ICCS', 'Ordinal stripping prefix failed');
+  assert(extractConferencePrefix('') === 'CONF', 'Empty fallback failed');
+
+  // 2. Test Cryptographic Verification Signature
+  const sampleCert = {
+    CERTIFICATE_ID: 'ICML-2026-0001',
+    NAME: 'Alice Example',
+    EVENT: 'ICML 2026',
+    DATE: '18 Sep 2026',
+    ORGANIZATION: 'Society'
+  };
+  const sig1 = computeVerificationSignature(sampleCert, 'test-secret');
+  assert(sig1 && sig1.length === 16, 'Signature length invalid');
+  const sig1Repeat = computeVerificationSignature(sampleCert, 'test-secret');
+  assert(sig1 === sig1Repeat, 'Signature not deterministic');
+  const tamperedCert = { ...sampleCert, NAME: 'Bob Tampered' };
+  const sigTampered = computeVerificationSignature(tamperedCert, 'test-secret');
+  assert(sig1 !== sigTampered, 'Tampered certificate must produce different signature');
+
+  const verifyUrl = getVerificationUrl(sampleCert, 'test-secret');
+  assert(verifyUrl.includes('id=ICML-2026-0001') && verifyUrl.includes('sig=') && verifyUrl.includes('name=Alice+Example'), 'Verification URL malformed');
+
+  // 3. Test Template and Mapping
   state.elements = structuredClone(getTemplate('modern').elements);
   state.templateId = 'modern';
   state.rows = [
@@ -49,21 +87,39 @@ function assert(x, msg) { if (!x) throw new Error(msg); }
   const mapped = mappedRows();
   assert(mapped[0].EVENT === 'Annual Meeting' && mapped[0].REGISTRATION_ID === 'R001', 'mapping/global/custom token failed');
 
-  const csv = 'Name,Role,Note\n"Doe, Jane",Speaker,"A ""quoted"" note"\nBob,Delegate,OK\n';
-  const parsed = parseCSV(csv);
-  assert(parsed[0].Name === 'Doe, Jane' && parsed[0].Note === 'A "quoted" note', 'CSV parser failed');
-
-  const v = validateRows();
-  assert(v.total === 3 && v.valid === 2 && v.missingName === 1, 'validation failed');
+  // 4. Test QR Code Element Dynamic Per-Participant Rendering
+  state.elements.push({
+    id: 'qr_test',
+    type: 'qr',
+    text: '{{VERIFY_URL}}',
+    x: 100,
+    y: 100,
+    w: 80
+  });
 
   const svg = renderCertificateSVG(mapped[0], 0);
-  assert(svg.includes('Alice Example') && svg.includes('Annual Meeting'), 'SVG render failed');
+  assert(svg.includes('Alice Example') && svg.includes('Annual Meeting'), 'SVG text render failed');
+  assert(svg.includes('data-el="qr_test"'), 'SVG QR element render failed');
+  assert(svg.includes('href="data:image/'), 'SVG QR data URL missing');
 
+  // 5. Test Batch Generation and Registry Output
   state.settings.filename = '{{NAME}}.pdf';
   const result = await generateAll();
   assert(result.files.length === 2 && result.skipped === 1, 'generation skip failed');
   assert(result.files[1].name === 'Alice Example_2.pdf', 'duplicate filename handling failed');
+  assert(result.registry && result.registry.length === 2, 'registry missing or incorrect length');
+  assert(result.registry[0].name === 'Alice Example' && result.registry[0].sig, 'registry data invalid');
 
+  // 6. Test CSV Parser
+  const csv = 'Name,Role,Note\n"Doe, Jane",Speaker,"A ""quoted"" note"\nBob,Delegate,OK\n';
+  const parsed = parseCSV(csv);
+  assert(parsed[0].Name === 'Doe, Jane' && parsed[0].Note === 'A "quoted" note', 'CSV parser failed');
+
+  // 7. Test Validation
+  const v = validateRows();
+  assert(v.total === 3 && v.valid === 2 && v.missingName === 1, 'validation failed');
+
+  // 8. Test Project Persistence
   const snapshot = {
     version: 2, projectName: 'Saved', templateId: 'modern',
     elements: [{ id: 'x', type: 'text', text: 'Edited', x: 1, y: 2, w: 3, size: 12 }],

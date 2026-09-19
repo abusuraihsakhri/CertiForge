@@ -70,10 +70,10 @@ This is the first functional vertical slice. It intentionally prioritizes the fu
 
 ### Next engineering milestones
 
-- Resize handles
-- SVG assets
-- QR verification
-- More templates
+- Conference-derived Certificate ID numbering (`{{EVENT_ACRONYM}}-{{YEAR}}-{{NUM}}`)
+- Cryptographic QR code verification portal (`verify.html`) with SHA-256 tamper detection
+- Batch export of verification registry (`verification-registry.json`)
+- ISO-compliant offline QR code generator (`vendor/qrcode.min.js`)
 - Font management
 - Undo/redo
 - IndexedDB project storage
