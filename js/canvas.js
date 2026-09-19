@@ -13,6 +13,7 @@ export function renderCanvas(container, row = null, interactive = false) {
   container.innerHTML = "";
   container.className = "certificate-canvas";
   container.style.background = t.background;
+  container.style.aspectRatio = `${t.page.width} / ${t.page.height}`;
   const sx = 100 / t.page.width, sy = 100 / t.page.height;
 
   const applyScale = () => {
@@ -68,6 +69,10 @@ export function renderCanvas(container, row = null, interactive = false) {
     } else if (e.type === "qr") {
       el.innerHTML = e._svg || "";
       el.style.background = "transparent";
+      el.style.transform = "translate(-50%,-50%)";
+      el.style.display = "flex";
+      el.style.alignItems = "center";
+      el.style.justifyContent = "center";
     }
 
     if (e.id === state.selectedElement) {
@@ -82,6 +87,7 @@ export function renderCanvas(container, row = null, interactive = false) {
     }
     container.appendChild(el);
   });
+
   container.onclick = () => { if (interactive) { state.selectedElement = null; renderCurrentEditor(); } };
   applyScale();
   if (window.ResizeObserver) {
@@ -146,10 +152,28 @@ export function beginDragElement(ev, e, container, t) {
       [o.x, o.x + (o.w || 0) / 2, o.x + (o.w || 0)].forEach(v => { if (Math.abs(nx - v) < snapThreshold / rect.width * t.page.width) nx = v; });
       [o.y, o.y + (o.h || 0) / 2, o.y + (o.h || 0)].forEach(v => { if (Math.abs(ny - v) < snapThreshold / rect.height * t.page.height) ny = v; });
     });
-    e.x = Math.max(0, Math.min(t.page.width - (e.w || 0), nx));
-    e.y = Math.max(0, Math.min(t.page.height - (e.h || 0), ny));
+
+    const isCentered = (e.type === "text" || e.type === "image" || e.type === "qr");
+    if (isCentered) {
+      e.x = Math.round(Math.max(10, Math.min(t.page.width - 10, nx)));
+      e.y = Math.round(Math.max(10, Math.min(t.page.height - 10, ny)));
+    } else {
+      e.x = Math.round(Math.max(0, Math.min(t.page.width - (e.w || 0), nx)));
+      e.y = Math.round(Math.max(0, Math.min(t.page.height - (e.h || 0), ny)));
+    }
+
     const node = container.querySelector(`[data-id="${e.id}"]`);
-    if (node) { node.style.left = (e.x / t.page.width * 100) + "%"; node.style.top = (e.y / t.page.height * 100) + "%"; }
+    if (node) {
+      node.style.left = (e.x / t.page.width * 100) + "%";
+      node.style.top = (e.y / t.page.height * 100) + "%";
+    }
+
+    // Live update property panel coordinates if visible
+    const propX = document.getElementById("propX");
+    const propY = document.getElementById("propY");
+    if (propX) propX.value = e.x;
+    if (propY) propY.value = e.y;
+
     showGuides(e.x, e.y);
   };
 
@@ -171,25 +195,61 @@ function beginResize(ev, handle, el, node, sx, sy) {
   const orig = { x: el.x, y: el.y, w: el.w, h: el.h, size: el.size };
   const container = node.parentElement;
   const rect = container.getBoundingClientRect();
+  const isCentered = (el.type === "text" || el.type === "image" || el.type === "qr");
 
   const move = mv => {
     const dx = (mv.clientX - startX) / rect.width * t.page.width;
     const dy = (mv.clientY - startY) / rect.height * t.page.height;
     let nw = orig.w, nh = orig.h, nx = orig.x, ny = orig.y;
 
-    if (handle.includes("e")) nw = Math.max(20, orig.w + dx);
-    if (handle.includes("w")) { nw = Math.max(20, orig.w - dx); nx = orig.x + orig.w - nw; }
-    if (handle.includes("s")) nh = Math.max(10, orig.h + dy);
-    if (handle.includes("n")) { nh = Math.max(10, orig.h - dy); ny = orig.y + orig.h - nh; }
+    if (isCentered) {
+      if (handle.includes("e")) {
+        nw = Math.max(20, orig.w + dx);
+        nx = orig.x + dx / 2;
+      }
+      if (handle.includes("w")) {
+        nw = Math.max(20, orig.w - dx);
+        nx = orig.x + dx / 2;
+      }
+      if (handle.includes("s")) {
+        nh = Math.max(10, orig.h + dy);
+        ny = orig.y + dy / 2;
+      }
+      if (handle.includes("n")) {
+        nh = Math.max(10, orig.h - dy);
+        ny = orig.y + dy / 2;
+      }
+    } else {
+      if (handle.includes("e")) nw = Math.max(20, orig.w + dx);
+      if (handle.includes("w")) { nw = Math.max(20, orig.w - dx); nx = orig.x + orig.w - nw; }
+      if (handle.includes("s")) nh = Math.max(10, orig.h + dy);
+      if (handle.includes("n")) { nh = Math.max(10, orig.h - dy); ny = orig.y + orig.h - nh; }
+    }
 
-    el.w = nw; el.h = nh; el.x = nx; el.y = ny;
-    if (el.type === "text" && (handle === "e" || handle === "w")) {
+    el.w = Math.round(nw);
+    el.h = Math.round(nh);
+    el.x = Math.round(nx);
+    el.y = Math.round(ny);
+
+    if (el.type === "text" && (handle.includes("e") || handle.includes("w"))) {
       el.size = Math.max(6, Math.round(orig.size * (nw / orig.w)));
     }
+
     node.style.left = (el.x / t.page.width * 100) + "%";
     node.style.top = (el.y / t.page.height * 100) + "%";
     node.style.width = (el.w / t.page.width * 100) + "%";
     if (el.h) node.style.height = (el.h / t.page.height * 100) + "%";
+
+    const propW = document.getElementById("propW");
+    const propH = document.getElementById("propH");
+    const propX = document.getElementById("propX");
+    const propY = document.getElementById("propY");
+    const propSize = document.getElementById("propSize");
+    if (propW) propW.value = el.w;
+    if (propH) propH.value = el.h;
+    if (propX) propX.value = el.x;
+    if (propY) propY.value = el.y;
+    if (propSize && el.size) propSize.value = el.size;
   };
 
   const up = () => {
