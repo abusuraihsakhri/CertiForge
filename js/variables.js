@@ -3,7 +3,9 @@ import { state } from './state.js';
 export const variableKeys = [
   "NAME", "ROLE", "EVENT", "DATE", "VENUE",
   "INSTITUTION", "DEPARTMENT", "EMAIL", "ORGANIZATION",
-  "CERTIFICATE_ID", "YEAR", "VERIFY_URL", "VERIFY_SIG"
+  "CERTIFICATE_ID", "YEAR", "VERIFY_URL", "VERIFY_SIG",
+  "EDITION", "AWARD_RANK", "PAPER_TITLE", "PAPER_TYPE",
+  "CME_HOURS", "CME_REF", "COUNCIL_REG_NO"
 ];
 
 function rightRotate(value, amount) {
@@ -132,9 +134,23 @@ export function sampleRecord() {
   const custom = {};
   Object.entries(raw).forEach(([k, v]) => { const token = columnToken(k); if (token && !variableKeys.includes(token)) custom[token] = v; });
   return Object.assign({
-    NAME: "John Smith", ROLE: "Delegate", INSTITUTION: "Example University",
-    DEPARTMENT: "Department of Medicine", EMAIL: "john@example.com",
-    YEAR: state.certificate.year
+    NAME: "Dr Abu Suraih Sakhri. E.P",
+    ROLE: "Delegate",
+    EVENT: "32nd Annual Conference of Delhi Society of Haematology",
+    DATE: "8th October 2026",
+    VENUE: "Maulana Azad Medical College, New Delhi",
+    ORGANIZATION: "Delhi Society of Haematology",
+    INSTITUTION: "Maulana Azad Medical College",
+    DEPARTMENT: "Department of Pathology",
+    EMAIL: "abusuraihsakhri@gmail.com",
+    YEAR: state.certificate.year,
+    EDITION: "32nd",
+    AWARD_RANK: "Third",
+    PAPER_TYPE: "Case report",
+    PAPER_TITLE: "Autoimmune Disorder and Myelodysplastic Syndrome - Cause or Effect",
+    CME_HOURS: "4",
+    CME_REF: "DMC/CME/2026/894",
+    COUNCIL_REG_NO: "DMC-84920"
   }, state.globalFields || {}, custom, raw);
 }
 

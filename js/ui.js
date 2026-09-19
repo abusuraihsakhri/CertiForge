@@ -42,10 +42,24 @@ export function renderStep() {
   if (step === "generate") return renderGenerate(app);
 }
 
+let _templateFilter = "All";
+
 function renderTemplates(app) {
-  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">01 / TEMPLATE</div><h1>Choose your certificate.</h1><p class="lead">Start with a structured design. Selecting another template resets current template edits.</p></div></div>
-  <div class="grid template-grid">${templates.map(t => `<article class="card template-card" data-template="${escapeHTML(t.id)}"><div class="template-thumb">${templateSVG(t.id)}</div><div class="template-info"><strong>${escapeHTML(t.name)}</strong><p>${escapeHTML(t.description)}</p><span class="tag">${escapeHTML(t.category)}</span></div></article>`).join("")}</div></div>`;
-  app.querySelectorAll("[data-template]").forEach(c => c.onclick = () => { loadTemplate(c.dataset.template); go("editor"); });
+  const cats = ["All", "Indian Medical", "Academic", "Conference", "Medical", "Technology", "Awards", "Corporate", "Sports"];
+  
+  const draw = () => {
+    const filtered = _templateFilter === "All" ? templates : templates.filter(t => t.category === _templateFilter);
+    app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">01 / TEMPLATE</div><h1>Choose your certificate.</h1><p class="lead">Select an authentic Indian conference layout or global academic template. Selecting a template resets current template edits.</p></div></div>
+    <div class="toolbar" style="margin-bottom:20px;gap:8px;flex-wrap:wrap">
+      ${cats.map(c => `<button class="btn ${_templateFilter === c ? 'primary' : 'ghost'}" data-cat="${escapeHTML(c)}" style="border-radius:9999px;padding:6px 14px;font-size:12px;font-weight:600">${escapeHTML(c)}</button>`).join("")}
+    </div>
+    <div class="grid template-grid">${filtered.map(t => `<article class="card template-card ${state.templateId === t.id ? 'active-template' : ''}" data-template="${escapeHTML(t.id)}"><div class="template-thumb">${templateSVG(t.id)}</div><div class="template-info"><strong>${escapeHTML(t.name)}</strong><p>${escapeHTML(t.description)}</p><span class="tag">${escapeHTML(t.category)}</span></div></article>`).join("")}</div></div>`;
+    
+    app.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => { _templateFilter = b.dataset.cat; draw(); });
+    app.querySelectorAll("[data-template]").forEach(c => c.onclick = () => { loadTemplate(c.dataset.template); go("editor"); });
+  };
+
+  draw();
 }
 
 function renderEditor(app) {

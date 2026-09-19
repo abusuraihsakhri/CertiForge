@@ -10,19 +10,18 @@ function esc(s) {
 }
 
 export function buildSvgSkeleton(templateId) {
-  if (_svgCache.has(templateId)) return _svgCache.get(templateId);
   const t = getTemplate(templateId);
   let staticParts = '';
-  t.elements.forEach(e => {
-    if (e.type === "shape") {
-      if (e.shape === "polygon" && e.points) staticParts += `<polygon data-el="${e.id}" points="${e.points}" fill="${e.fill || "none"}" stroke="${e.stroke || "none"}" stroke-width="${e.strokeWidth || 0}"/>`;
-      else if (e.shape === "circle") staticParts += `<circle data-el="${e.id}" cx="${e.cx}" cy="${e.cy}" r="${e.r}" fill="${e.fill || "none"}" stroke="${e.stroke || "none"}" stroke-width="${e.strokeWidth || 0}"/>`;
-      else staticParts += `<rect data-el="${e.id}" x="${e.x}" y="${e.y}" width="${e.w}" height="${e.h}" fill="${e.fill || "none"}" stroke="${e.stroke || "none"}" stroke-width="${e.strokeWidth || 0}"/>`;
-    }
+  const shapes = (state.elements && state.elements.length) 
+    ? state.elements.filter(e => e.type === "shape") 
+    : t.elements.filter(e => e.type === "shape");
+
+  shapes.forEach(e => {
+    if (e.shape === "polygon" && e.points) staticParts += `<polygon data-el="${e.id}" points="${e.points}" fill="${e.fill || "none"}" stroke="${e.stroke || "none"}" stroke-width="${e.strokeWidth || 0}"/>`;
+    else if (e.shape === "circle") staticParts += `<circle data-el="${e.id}" cx="${e.cx}" cy="${e.cy}" r="${e.r}" fill="${e.fill || "none"}" stroke="${e.stroke || "none"}" stroke-width="${e.strokeWidth || 0}"/>`;
+    else staticParts += `<rect data-el="${e.id}" x="${e.x}" y="${e.y}" width="${e.w}" height="${e.h}" fill="${e.fill || "none"}" stroke="${e.stroke || "none"}" stroke-width="${e.strokeWidth || 0}"/>`;
   });
-  const skeleton = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${t.page.width}" height="${t.page.height}" viewBox="0 0 ${t.page.width} ${t.page.height}"><rect width="100%" height="100%" fill="${t.background}"/>${staticParts}`;
-  _svgCache.set(templateId, skeleton);
-  return skeleton;
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${t.page.width}" height="${t.page.height}" viewBox="0 0 ${t.page.width} ${t.page.height}"><rect width="100%" height="100%" fill="${t.background}"/>${staticParts}`;
 }
 
 export function renderCertificateSVG(row, index) {
@@ -32,7 +31,7 @@ export function renderCertificateSVG(row, index) {
 
   state.elements.forEach(e => {
     if (e.type === "image" && e.src) {
-      dynamicParts += `<image data-el="${e.id}" href="${esc(e.src)}" x="${e.x - (e.w || 180) / 2}" y="${e.y - (e.h || 90) / 2}" width="${e.w || 180}" height="${e.h || 90}" preserveAspectRatio="xMidYMid meet" opacity="${e.opacity ?? 1}"/>`;
+      dynamicParts += `<image data-el="${e.id}" href="${esc(e.src)}" xlink:href="${esc(e.src)}" x="${e.x - (e.w || 180) / 2}" y="${e.y - (e.h || 90) / 2}" width="${e.w || 180}" height="${e.h || 90}" preserveAspectRatio="xMidYMid meet" opacity="${e.opacity ?? 1}"/>`;
     } else if (e.type === "text") {
       const lines = resolveText(e.text, data, index).split("\n");
       const lh = (e.size || 16) * 1.25;
@@ -45,7 +44,7 @@ export function renderCertificateSVG(row, index) {
       const rawText = e.text || "{{VERIFY_URL}}";
       const resolved = resolveText(rawText, data, index);
       const qrDataUrl = generateQRDataUrl(resolved, 200);
-      dynamicParts += `<image data-el="${e.id}" href="${qrDataUrl}" x="${e.x - sz / 2}" y="${e.y - sz / 2}" width="${sz}" height="${sz}" preserveAspectRatio="xMidYMid meet"/>`;
+      dynamicParts += `<image data-el="${e.id}" href="${qrDataUrl}" xlink:href="${qrDataUrl}" x="${e.x - sz / 2}" y="${e.y - sz / 2}" width="${sz}" height="${sz}" preserveAspectRatio="xMidYMid meet"/>`;
     }
   });
   return skeleton + dynamicParts + '</svg>';

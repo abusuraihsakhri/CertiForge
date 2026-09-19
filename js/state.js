@@ -8,12 +8,14 @@ export const state = {
   mappings: {},
   sampleIndex: 0,
   globalFields: {
-    EVENT: "International Conference 2026",
-    DATE: "12 September 2026",
-    VENUE: "Grand Conference Centre",
-    ORGANIZATION: "Example Organization"
+    EVENT: "32nd Annual Conference of Delhi Society of Haematology",
+    DATE: "8th October 2026",
+    VENUE: "Maulana Azad Medical College, New Delhi",
+    ORGANIZATION: "Delhi Society of Haematology",
+    DEPARTMENT: "Department of Pathology",
+    INSTITUTION: "Maulana Azad Medical College"
   },
-  certificate: { prefix: "CONF", year: String(new Date().getFullYear()), start: 1, digits: 4, separator: "-" },
+  certificate: { prefix: "DSH", year: String(new Date().getFullYear()), start: 1, digits: 4, separator: "-" },
   settings: { filename: "{{CERTIFICATE_ID}}_{{NAME}}.pdf", rasterScale: 2, verifySecret: "CertiForge-Secure-Salt" },
   generated: [],
   registry: [],
@@ -32,7 +34,14 @@ export const defaultState = () => ({
   columns: [],
   mappings: {},
   sampleIndex: 0,
-  globalFields: { EVENT: "International Conference 2026", DATE: "12 September 2026", VENUE: "Grand Conference Centre", ORGANIZATION: "Example Organization" },
+  globalFields: {
+    EVENT: "32nd Annual Conference of Delhi Society of Haematology",
+    DATE: "8th October 2026",
+    VENUE: "Maulana Azad Medical College, New Delhi",
+    ORGANIZATION: "Delhi Society of Haematology",
+    DEPARTMENT: "Department of Pathology",
+    INSTITUTION: "Maulana Azad Medical College"
+  },
   certificate: { prefix: "CONF", year: String(new Date().getFullYear()), start: 1, digits: 4, separator: "-" },
   settings: { filename: "{{CERTIFICATE_ID}}_{{NAME}}.pdf", rasterScale: 2, verifySecret: "CertiForge-Secure-Salt" },
   generated: [],
