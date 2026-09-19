@@ -1,90 +1,123 @@
-CertiForge
+<div align="center">🎓 CertiForge
 
-Privacy-first bulk certificate design, generation and verification — entirely in the browser.
+Certificate Studio for Bulk Generation & Verification
 
-CertiForge — Certificate Studio is an open-source certificate creation platform for conferences, universities, workshops, CME/CPD programs, seminars, competitions, academic events and institutional programs.
+Design once · Import participants · Generate at scale · Verify credentials
 
-Design a certificate, connect it to participant data from Excel or CSV, generate personalized PDF certificates in bulk, and optionally add unique certificate IDs and QR-based verification.
+<br>""License: MIT" (https://img.shields.io/badge/License-MIT-green.svg)" (LICENSE)
+"Privacy First" (https://img.shields.io/badge/Privacy-Local--First-2563eb)
+"Client Side" (https://img.shields.io/badge/Processing-Client--Side-7c3aed)
+"PWA" (https://img.shields.io/badge/PWA-Enabled-f97316)
+"JavaScript" (https://img.shields.io/badge/JavaScript-ES6+-f7df1e?logo=javascript&logoColor=000)
+"No Backend" (https://img.shields.io/badge/Backend-Not%20Required-16a34a)
 
-No backend is required for the core workflow.
+<br>CertiForge is an open-source, privacy-first certificate designer and bulk generator for conferences, universities, CME/CPD programs, workshops, seminars, competitions and institutional events.
 
----
+Create the certificate once, connect it to Excel or CSV data, and generate personalized, verifiable PDF certificates in bulk — directly in your browser.
 
-What CertiForge Does
+<br>"🚀 Open CertiForge" (https://abusuraihsakhri.github.io/CertiForge/) · "🔍 Verification Portal" (https://abusuraihsakhri.github.io/CertiForge/verify.html)
 
-CertiForge turns a spreadsheet and a certificate design into a complete batch of personalized certificates.
+</div>---
 
-The workflow is:
+✨ What CertiForge Does
 
-Choose a Template
-        ↓
-Customize the Design
-        ↓
-Upload XLSX / XLS / CSV
-        ↓
+Choose Template
+      ↓
+Design Certificate
+      ↓
+Import XLSX / XLS / CSV
+      ↓
 Map Participant Data
-        ↓
-Preview Certificates
-        ↓
+      ↓
+Preview
+      ↓
 Configure Certificate IDs
-        ↓
+      ↓
 Generate PDFs
-        ↓
+      ↓
 Download ZIP + Verification Registry
 
-Everything from spreadsheet parsing to PDF generation happens in the browser.
+No participant database.
+No server-side PDF generation.
+No mandatory account.
+
+The core certificate workflow runs locally in the browser.
 
 ---
 
-Key Features
+🚀 Features
 
-Certificate Designer
-
-CertiForge includes a browser-based certificate editor with:
-
-- 13 built-in certificate templates
-- Multiple academic, conference, medical, award, technology, corporate and sports styles
-- Specialized Indian academic and medical conference templates
-- Editable text elements
-- Direct drag positioning
-- Custom text elements
-- Logo and signature uploads
-- PNG, JPEG, WebP and SVG image support
-- Custom font upload
-- Font size, weight and color controls
-- Image dimensions and opacity controls
-- Element duplication and deletion
-- Layer ordering
-- Undo and redo
-- QR-code elements
-
-The editor is intentionally focused on certificate workflows rather than attempting to reproduce a general-purpose design application.
+| Feature| Description
+🎨| Certificate Designer| Edit text, images, signatures, logos, fonts, QR codes and element positioning
+📊| Spreadsheet Import| Import ".xlsx", ".xls" and ".csv" participant data
+🔗| Smart Mapping| Automatically or manually map spreadsheet columns to certificate fields
+🧩| Dynamic Variables| Use built-in variables and arbitrary spreadsheet columns inside templates
+🆔| Certificate IDs| Generate structured and sequential certificate identifiers
+📱| QR Verification| Embed verification QR codes directly into certificates
+🔍| Verification Portal| Verify credentials using QR links or certificate IDs
+🔐| Integrity Digests| Generate SHA-256-derived verification signatures
+📄| Bulk PDF Generation| Generate personalized PDFs for all valid participants
+📦| ZIP Export| Download the entire certificate batch as a single archive
+💾| Project Save/Open| Save certificate projects and reopen them later
+↩️| Undo / Redo| Restore recent design changes
+🗂️| Layer Controls| Change element stacking order
+🔤| Custom Fonts| Load local TTF, OTF, WOFF and WOFF2 fonts
+🖼️| Custom Assets| Add PNG, JPG, WebP and SVG logos or signatures
+💽| Autosave| Recover locally saved projects using IndexedDB
+📲| PWA Support| Installable application with offline asset caching
+🔒| Local-First Processing| Participant spreadsheets remain in the browser during generation
 
 ---
 
-Spreadsheet-Driven Certificates
+🎨 Certificate Studio
 
-Participant information can be imported from:
+CertiForge includes 13 built-in templates covering several certificate styles and use cases.
+
+Template categories
+
+- 🩺 Medical & CME
+- 🎓 Academic
+- 🏛️ University
+- 🎤 Conferences
+- 🏆 Awards
+- 💻 Technology
+- 🏢 Corporate
+- 🏅 Sports
+- 🇮🇳 Indian academic and medical conference layouts
+
+The editor supports:
+
+Text           Images
+Fonts          Logos
+Signatures     QR Codes
+Positioning    Layer Order
+Opacity        Duplication
+Undo / Redo    Custom Variables
+
+---
+
+📊 Spreadsheet → Certificate
+
+Upload participant information directly from:
 
 .xlsx
 .xls
 .csv
 
-CertiForge supports automatic and manual column mapping.
-
-For example:
+Example:
 
 Name| Institution| Role| Registration ID
 Jane Doe| University A| Speaker| REG001
 John Smith| Hospital B| Participant| REG002
+Alex Kumar| Institute C| Faculty| REG003
 
-can be mapped directly into certificate content.
+CertiForge maps spreadsheet information into your certificate automatically or through manual field mapping.
 
 ---
 
-Dynamic Variables
+🧩 Dynamic Variables
 
-Templates support variables such as:
+Templates can contain reusable variables such as:
 
 {{NAME}}
 {{ROLE}}
@@ -99,120 +132,144 @@ Templates support variables such as:
 {{VERIFY_URL}}
 {{VERIFY_SIG}}
 
-Additional spreadsheet columns automatically become usable template variables.
+Custom spreadsheet fields
 
-A column named:
+CertiForge is not limited to predefined variables.
 
-Registration ID
+A spreadsheet column such as:
 
-becomes:
+Presentation Title
 
-{{REGISTRATION_ID}}
+automatically becomes:
 
-This allows custom certificate datasets without modifying CertiForge itself.
+{{PRESENTATION_TITLE}}
+
+So a spreadsheet containing:
+
+Department
+Country
+Abstract Title
+Award Category
+Registration Number
+
+can expose:
+
+{{DEPARTMENT}}
+{{COUNTRY}}
+{{ABSTRACT_TITLE}}
+{{AWARD_CATEGORY}}
+{{REGISTRATION_NUMBER}}
+
+without changing the application code.
 
 ---
 
-Event-Wide Information
+🏛️ Event-Wide Fields
 
-Information shared by every participant can be entered once instead of repeated throughout the spreadsheet.
+Information common to all participants can be entered once.
 
-Examples include:
+Examples:
 
 - Event name
+- Organization
 - Date
 - Venue
-- Organization
 - Institution
-- Conference details
+- Conference year
 
-Participant-specific spreadsheet information is then merged with these event-level values during generation.
+These values are combined with participant-specific spreadsheet data when certificates are generated.
 
 ---
 
-Certificate Identity
+🆔 Certificate Identity
 
-CertiForge can assign structured certificate identifiers automatically.
-
-For example:
+CertiForge generates structured certificate identifiers such as:
 
 WMS-2026-0001
 WMS-2026-0002
 WMS-2026-0003
 
-The numbering system supports configurable:
+You can configure:
 
-- Prefix
-- Year
-- Starting number
-- Number of digits
-- Separator
+Setting| Example
+Prefix| "WMS"
+Year| "2026"
+Starting number| "1"
+Digits| "4"
+Separator| "-"
 
-CertiForge can also derive a certificate prefix from the event name.
-
-This gives each generated certificate a stable identifier that can be used for verification and record keeping.
+CertiForge can also derive a prefix automatically from the event name.
 
 ---
 
-QR Certificate Verification
+📱 QR Verification
 
-CertiForge includes an integrated certificate verification workflow.
+QR verification can be added directly to certificate designs.
 
-A QR code can be placed directly on the certificate using:
+Use:
 
 {{VERIFY_URL}}
 
-Each generated certificate can contain:
+as the QR content.
 
-- Certificate ID
-- Recipient name
-- Event
-- Role
-- Issue date
-- Issuing organization
-- Verification digest
+A generated verification URL can contain information such as:
+
+Certificate ID
+Recipient
+Event
+Role
+Date
+Issuing Organization
+Verification Digest
 
 Scanning the QR code opens the CertiForge verification portal.
 
 ---
 
-Verification Portal
+🔍 Verification Portal
 
-CertiForge includes a dedicated:
+CertiForge includes a dedicated credential verification interface.
 
-verify.html
+Verification methods
 
-verification portal.
+📱 Scan QR code
 
-Certificates can be checked through:
+Open the verification record directly from the certificate.
 
-QR verification
+🆔 Search certificate ID
 
-A QR code embedded in the certificate opens its verification record directly.
-
-Certificate ID lookup
-
-Users can search for a certificate using its unique certificate ID.
-
-Example:
+Search for an identifier such as:
 
 ICML-2026-0042
 
-Verification registry
+📂 Load a verification registry
 
-After certificate generation, CertiForge can export a:
+The portal can load a locally exported:
 
 verification-registry.json
 
-containing the generated certificate records.
-
-The verification portal can load this registry and search it locally.
-
-A registry can also be published alongside the verification portal when public certificate lookup is desired.
+and verify certificates by ID.
 
 ---
 
-Integrity Verification
+📜 Verification Registry
+
+Bulk generation can produce a machine-readable registry alongside the PDFs.
+
+Conference Certificates
+│
+├── certificates.zip
+│   ├── WMS-2026-0001_Jane_Doe.pdf
+│   ├── WMS-2026-0002_John_Smith.pdf
+│   └── WMS-2026-0003_Alex_Kumar.pdf
+│
+└── WMS-verification-registry.json
+
+The registry stores certificate records required by the verification workflow.
+
+---
+
+🔐 Certificate Integrity
 
 CertiForge generates a SHA-256-derived verification digest from certificate information including:
 
@@ -222,165 +279,127 @@ Event
 Date
 Organization
 
-Changing those fields causes the verification digest to no longer match.
+Changing signed certificate fields causes the generated verification digest to differ.
 
-Security scope
+«Security scope
 
-The current verification system provides tamper-evident certificate verification within the CertiForge workflow.
+The current verification architecture provides tamper-evident verification within the CertiForge workflow.
 
-It should not currently be interpreted as a PKI-backed digital signature or proof of issuer identity. A future security architecture can add asymmetric digital signatures so verification can be performed using an issuer's public key without exposing signing secrets in client-side code.
+It is not yet equivalent to a PKI-backed digital signature or asymmetric issuer authentication. Future versions can introduce public/private-key signing so issuer authenticity can be independently verified without exposing signing material to client-side code.»
 
 ---
 
-Bulk PDF Generation
+📄 High-Resolution PDF Generation
 
-CertiForge generates an individual PDF for every valid participant record.
+CertiForge renders certificates through a high-resolution graphics pipeline:
 
-Rows without a valid participant name are automatically skipped.
+flowchart LR
+    A[Certificate Template] --> B[Resolved SVG]
+    B --> C[High-Resolution Canvas]
+    C --> D[PNG Rendering]
+    D --> E[PDF]
 
-Duplicate filenames are safely de-conflicted.
+This provides output suitable for:
 
-For example:
+- ✉️ Email distribution
+- 🖨️ Printing
+- 📚 Academic records
+- 🏛️ Institutional archives
+
+Multiple rendering quality levels are available.
+
+---
+
+📦 Bulk Generation
+
+CertiForge processes every valid participant row and generates an individual PDF.
+
+Rows without valid participant names are skipped automatically.
+
+Duplicate filenames are safely handled:
 
 John_Smith.pdf
 John_Smith_2.pdf
 John_Smith_3.pdf
 
-Generation progress is displayed during large batches.
+Generation progress is displayed while the batch is processed.
 
 ---
 
-High-Resolution Rendering
-
-Certificates are rendered using an SVG-based pipeline:
-
-Certificate Design
-       ↓
-SVG
-       ↓
-High-Resolution Canvas
-       ↓
-PNG
-       ↓
-PDF
-
-This produces output suitable for both electronic distribution and printing.
-
-Multiple output-quality settings are supported.
-
----
-
-ZIP Export
-
-Generated certificates can be downloaded together as a single ZIP archive.
-
-certificates.zip
-│
-├── WMS-2026-0001_Jane_Doe.pdf
-├── WMS-2026-0002_John_Smith.pdf
-├── WMS-2026-0003_Alex_Kumar.pdf
-└── ...
-
-The verification registry can be exported separately for certificate lookup and record keeping.
-
----
-
-Save and Reopen Projects
+💾 Projects & Autosave
 
 CertiForge projects can be exported and reopened later.
 
-Project files preserve information including:
+Saved projects preserve:
 
-- Template
+- Template selection
 - Design elements
-- Text changes
+- Text content
 - Element positions
-- Uploaded images
+- Images and signatures
 - Custom fonts
 - Column mappings
 - Event information
-- Certificate numbering configuration
+- Certificate numbering
 - Generation settings
 
-Participant spreadsheet rows are intentionally not embedded into exported project files.
+Participant spreadsheet rows are intentionally not embedded in exported project files.
+
+CertiForge also uses IndexedDB autosave to help recover unsaved projects.
 
 ---
 
-Autosave
+🔒 Privacy First
 
-CertiForge uses browser storage to periodically save the current project state.
+<div align="center">Your participant spreadsheet does not need to leave your device.
 
-If an unsaved session is detected later, the application can offer to restore it.
+</div>Core operations happen locally in the browser:
 
-This provides additional protection against accidental browser closure or interrupted editing.
+flowchart LR
+    A[XLSX / CSV] --> B[Browser]
+    B --> C[Mapping]
+    C --> D[Certificate Rendering]
+    D --> E[PDF]
+    E --> F[ZIP]
 
----
+CertiForge does not require a backend for:
 
-Privacy by Design
-
-The certificate-generation workflow is local-first.
-
-Participant spreadsheets are parsed inside the browser.
-
-CertiForge does not require a backend server or participant database for:
-
-- spreadsheet import
-- data mapping
+- spreadsheet parsing
 - certificate design
+- data mapping
 - PDF generation
-- ZIP generation
+- ZIP creation
 - project storage
-
-Participant data therefore does not need to be uploaded to a CertiForge server simply to generate certificates.
 
 Verification privacy
 
-Verification is a separate consideration.
+Public verification is different from certificate generation.
 
-When QR verification URLs are used, selected certificate metadata may be encoded in the verification URL. Opening an online verification URL can therefore expose those URL parameters to the hosting infrastructure and browser history.
+When verification URLs or registries are published, selected certificate information may become available through URLs or registry files.
 
-Similarly, publishing a verification registry makes the information contained in that registry publicly accessible.
-
-Organizations should choose which certificate information they want to expose when enabling public verification.
+Organizations should therefore decide which certificate metadata is appropriate to expose publicly.
 
 ---
 
-Offline Support
+📲 Offline & PWA Support
 
-CertiForge includes Progressive Web App support and a service worker.
+CertiForge includes:
 
-Core application assets and runtime libraries can be cached locally, allowing much of CertiForge to continue operating without a continuous internet connection after the application has been loaded.
+- "manifest.json"
+- Service Worker
+- Local runtime dependencies
+- Offline asset caching
+- Installable PWA support
 
-Runtime libraries including spreadsheet parsing, PDF generation, ZIP creation and QR generation are bundled with the project.
-
----
-
-Typical Uses
-
-CertiForge can generate certificates for:
-
-- Scientific conferences
-- Medical conferences
-- CME/CPD programs
-- Faculty development programs
-- Workshops
-- University seminars
-- Academic presentations
-- Paper and poster presentations
-- Speakers and faculty
-- Training programs
-- Competitions
-- Awards
-- Sports events
-- Institutional programs
-
-The same generation engine can support different certificate types simply by changing the template and spreadsheet variables.
+After required assets have been cached, substantial parts of the application can continue operating without a continuous internet connection.
 
 ---
 
-Example
+🧪 Example Workflow
 
-A conference organizer may have:
+Imagine a scientific conference with 1,000 participants.
+
+The spreadsheet contains:
 
 Name
 Institution
@@ -388,77 +407,141 @@ Role
 Paper Title
 Registration ID
 
-for 500 participants.
+With CertiForge:
 
-With CertiForge they can:
+flowchart TD
+    A[Design one certificate] --> B[Import participant spreadsheet]
+    B --> C[Map spreadsheet columns]
+    C --> D[Generate certificate IDs]
+    D --> E[Add verification QR]
+    E --> F[Preview]
+    F --> G[Generate 1,000 PDFs]
+    G --> H[Download ZIP]
+    H --> I[Export verification registry]
 
-Design one certificate
-        ↓
-Import the spreadsheet
-        ↓
-Map the fields
-        ↓
-Generate unique certificate IDs
-        ↓
-Add QR verification
-        ↓
-Generate 500 PDFs
-        ↓
-Download one ZIP
-        ↓
-Export the verification registry
-
-without manually editing 500 certificate files.
+No manual editing of 1,000 certificates is required.
 
 ---
 
-Built for Local-First Workflows
+🎯 Designed For
 
-CertiForge is designed around several principles:
+🩺 Healthcare| 🎓 Education| 🎤 Events
+CME programs| Universities| Conferences
+Medical conferences| Workshops| Seminars
+Faculty programs| Training courses| Webinars
+CPD activities| Academic presentations| Competitions
 
-Privacy — participant data should remain local whenever possible.
+Also suitable for:
 
-Reproducibility — the same project configuration should generate consistent certificates.
-
-Automation — repetitive certificate production should be handled by software rather than manual editing.
-
-Flexibility — spreadsheet columns should be usable without requiring code changes.
-
-Verification — certificates should have stable identities that can be checked after issuance.
-
-Portability — the core system should work without depending on a proprietary backend.
+🏆 Awards · 🧑‍🏫 Faculty certificates · 📑 Paper presentations · 🖼️ Posters · 🤝 Volunteers · 🏅 Sports events · 🏢 Institutional programs
 
 ---
 
-Current Development
+🧭 Project Principles
 
-CertiForge is actively evolving.
+🔒 Privacy by default
 
-Current development areas include improving:
+Participant information should remain local whenever practical.
 
-- editor precision and alignment tools
-- large-batch performance
-- PDF/font fidelity
-- accessibility
-- automated browser testing
-- verification security
-- issuer-authenticated digital signatures
-- certificate lifecycle and revocation workflows
+⚡ Automation
 
-The core certificate design → data import → generation → ZIP → verification workflow is already functional.
+Repetitive certificate production should be handled by software.
+
+🧩 Flexible data
+
+Certificate templates should work with arbitrary spreadsheet columns.
+
+🆔 Stable identity
+
+Issued certificates should have unique, reproducible identifiers.
+
+🔍 Verification
+
+Credentials should remain independently checkable after issuance.
+
+📦 Portability
+
+Core functionality should not depend on a proprietary backend.
+
+🎨 Focused design
+
+CertiForge is a certificate studio — not a general-purpose graphics editor.
 
 ---
 
-Open Source
+🛠️ Current Development
+
+The complete core workflow is functional:
+
+Design
+   ✓
+Import
+   ✓
+Map
+   ✓
+Preview
+   ✓
+Certificate IDs
+   ✓
+QR Verification
+   ✓
+PDF Generation
+   ✓
+ZIP Export
+   ✓
+Verification Registry
+   ✓
+Verification Portal
+   ✓
+
+Current development is focused on:
+
+- 📐 Better alignment and precision tools
+- ⚡ Large-batch optimization
+- 🔤 Improved PDF font fidelity
+- ♿ Accessibility
+- 🧪 Automated browser testing
+- 🔐 Stronger issuer authentication
+- 🔑 Asymmetric digital signatures
+- 🚫 Certificate revocation and lifecycle management
+
+---
+
+🤝 Contributing
+
+Contributions are welcome.
+
+Useful areas include:
+
+- 🎨 Certificate templates
+- 🐛 Bug fixes
+- 🧪 Testing
+- ♿ Accessibility
+- ⚡ Performance
+- 🔐 Verification security
+- 🌐 Browser compatibility
+- 📄 PDF rendering
+- 🔤 Font support
+- 📚 Documentation
+
+Issues and pull requests are welcome.
+
+---
+
+📄 License
 
 CertiForge is released under the MIT License.
 
-Contributions, testing, templates, bug reports and feature suggestions are welcome.
+See ""LICENSE"" (LICENSE) for details.
 
 ---
 
-CertiForge
+<div align="center">🎓 CertiForge
 
 Design once. Generate at scale. Verify with confidence.
 
 Privacy-first certificate infrastructure for events, education and institutions.
+
+<br>⭐ If CertiForge is useful to you, consider starring the repository.
+
+</div>
