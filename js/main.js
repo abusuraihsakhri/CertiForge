@@ -12,6 +12,8 @@ async function init() {
   if (autosave && confirm("A previously unsaved project was found. Restore it?")) {
     const { loadProjectFile } = await import('./project.js');
     const { defaultState: def } = await import('./state.js');
+    const restoredSettings = Object.assign({}, autosave.settings || {});
+    delete restoredSettings.verifySecret;
     Object.assign(state, {
       projectName: autosave.projectName || def().projectName,
       templateId: autosave.templateId || def().templateId,
@@ -19,7 +21,7 @@ async function init() {
       mappings: autosave.mappings || {},
       globalFields: Object.assign({}, def().globalFields, autosave.globalFields || {}),
       certificate: Object.assign({}, def().certificate, autosave.certificate || {}),
-      settings: Object.assign({}, def().settings, autosave.settings || {}),
+      settings: Object.assign({}, def().settings, restoredSettings),
       fonts: autosave.fonts || [],
       selectedElement: null, rows: [], columns: [], sampleIndex: 0, generated: []
     });
