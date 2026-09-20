@@ -283,3 +283,24 @@
 .template-thumb svg { display: block; }
 .editor-panel textarea { width: 100%; max-width: 100%; box-sizing: border-box; min-width: 0; resize: vertical; }
 .btn.ghost { background: #fff; }
+
+
+@media (min-width: 1121px) {
+  .editor-layout{
+    grid-template-columns:190px minmax(0,1fr) 245px;
+    gap:10px;
+    min-height:0;
+  }
+  .editor-panel{padding:10px}
+  .editor-panel h3{margin:0 2px 7px}
+  .element-list{gap:4px;max-height:300px}
+  .element-item{padding:6px 8px;font-size:11px}
+  .canvas-stage{padding:12px;min-height:390px}
+  .certificate-canvas{max-width:760px}
+  .element-properties{gap:7px}
+  .mapping-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .map-card{padding:9px}
+  .map-card .arrow{margin:3px;font-size:11px}
+  .preview-stage{padding:16px}
+  .preview-sheet{width:min(780px,100%)}
+}
