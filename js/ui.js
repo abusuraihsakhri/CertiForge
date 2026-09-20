@@ -50,8 +50,8 @@ function renderTemplates(app) {
   const draw = () => {
     const filtered = _templateFilter === "All" ? templates : templates.filter(t => t.category === _templateFilter);
     app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">01 / TEMPLATE</div><h1>Choose your certificate.</h1><p class="lead">Select an authentic Indian conference layout or global academic template. Selecting a template resets current template edits.</p></div></div>
-    <div class="toolbar" style="margin-bottom:20px;gap:8px;flex-wrap:wrap">
-      ${cats.map(c => `<button class="btn ${_templateFilter === c ? 'primary' : 'ghost'}" data-cat="${escapeHTML(c)}" style="border-radius:9999px;padding:6px 14px;font-size:12px;font-weight:600">${escapeHTML(c)}</button>`).join("")}
+    <div class="filter-bar">
+      ${cats.map(c => `<button class="btn ${_templateFilter === c ? 'primary' : 'ghost'}" data-cat="${escapeHTML(c)}" >${escapeHTML(c)}</button>`).join("")}
     </div>
     <div class="grid template-grid">${filtered.map(t => `<article class="card template-card ${state.templateId === t.id ? 'active-template' : ''}" data-template="${escapeHTML(t.id)}"><div class="template-thumb">${templateSVG(t.id)}</div><div class="template-info"><strong>${escapeHTML(t.name)}</strong><p>${escapeHTML(t.description)}</p><span class="tag">${escapeHTML(t.category)}</span></div></article>`).join("")}</div></div>`;
     
@@ -102,7 +102,7 @@ function renderData(app) {
   const v = validateRows();
   app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">03 / PARTICIPANTS</div><h1>Bring in your participant list.</h1><p class="lead">CSV works without an external library. XLS/XLSX uses the Excel parser loaded by the page.</p></div><button class="btn primary" id="toMapping" ${state.rows.length ? "" : "disabled"}>Continue</button></div>
   <div class="card panel"><div id="dropzone" class="dropzone"><strong>Drop your Excel or CSV file here</strong><p>or choose a file from your device</p><button class="btn" id="chooseFile">Choose file</button><input id="dataFile" type="file" accept=".xlsx,.xls,.csv" hidden></div></div>
-  ${state.rows.length ? `<div style="height:16px"></div><div class="metric-grid"><div class="metric"><strong>${v.total}</strong><span>PARTICIPANTS</span></div><div class="metric"><strong>${v.valid}</strong><span>VALID NAMES</span></div><div class="metric"><strong>${v.duplicateNames}</strong><span>DUPLICATE NAMES</span></div></div><div style="height:16px"></div><div class="card panel"><h2>Data preview</h2><div class="table-wrap">${tableHTML(state.rows.slice(0, 10))}</div></div>` : ""}</div>`;
+  ${state.rows.length ? `<div class="section-gap"></div><div class="metric-grid"><div class="metric"><strong>${v.total}</strong><span>PARTICIPANTS</span></div><div class="metric"><strong>${v.valid}</strong><span>VALID NAMES</span></div><div class="metric"><strong>${v.duplicateNames}</strong><span>DUPLICATE NAMES</span></div></div><div class="section-gap"></div><div class="card panel"><h2>Data preview</h2><div class="table-wrap">${tableHTML(state.rows.slice(0, 10))}</div></div>` : ""}</div>`;
   const dz = document.getElementById("dropzone"), input = document.getElementById("dataFile"), choose = document.getElementById("chooseFile"), next = document.getElementById("toMapping");
   choose.onclick = () => input.click();
   input.onchange = () => input.files[0] && handleDataFile(input.files[0]);
@@ -130,7 +130,7 @@ function renderMapping(app) {
   const gf = state.globalFields;
   app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">04 / MAPPING</div><h1>Map your spreadsheet.</h1><p class="lead">Participant-specific columns can override the conference-wide details below.</p></div><button class="btn primary" id="toPreview">Continue</button></div>
   <div class="card panel"><h2>Conference-wide details</h2><div class="form-grid"><div class="field"><label>Event</label><input data-global="EVENT" value="${escapeHTML(gf.EVENT || "")}"></div><div class="field"><label>Date</label><input data-global="DATE" value="${escapeHTML(gf.DATE || "")}"></div><div class="field"><label>Venue</label><input data-global="VENUE" value="${escapeHTML(gf.VENUE || "")}"></div><div class="field"><label>Organization</label><input data-global="ORGANIZATION" value="${escapeHTML(gf.ORGANIZATION || "")}"></div></div></div>
-  <div style="height:16px"></div><div class="card panel"><h2>Column mapping</h2><div class="mapping-grid">${variableKeys.filter(v => !["CERTIFICATE_ID", "YEAR"].includes(v)).map(v => `<div class="map-card ${v === "NAME" ? "required-map" : ""}"><strong>{{${v}}}${v === "NAME" ? ' <span class="required">required</span>' : ""}</strong><div class="arrow">↓</div><select data-map="${v}"><option value="">${["EVENT", "DATE", "VENUE", "ORGANIZATION"].includes(v) ? "Use conference-wide value" : "Not mapped"}</option>${options}</select></div>`).join("")}</div><div class="notice" style="margin-top:14px"><b>Direct spreadsheet variables:</b> every column is also available as a token. ${customTokens}</div></div></div>`;
+  <div class="section-gap"></div><div class="card panel"><h2>Column mapping</h2><div class="mapping-grid">${variableKeys.filter(v => !["CERTIFICATE_ID", "YEAR"].includes(v)).map(v => `<div class="map-card ${v === "NAME" ? "required-map" : ""}"><strong>{{${v}}}${v === "NAME" ? ' <span class="required">required</span>' : ""}</strong><div class="arrow">↓</div><select data-map="${v}"><option value="">${["EVENT", "DATE", "VENUE", "ORGANIZATION"].includes(v) ? "Use conference-wide value" : "Not mapped"}</option>${options}</select></div>`).join("")}</div><div class="notice" style="margin-top:14px"><b>Direct spreadsheet variables:</b> every column is also available as a token. ${customTokens}</div></div></div>`;
   app.querySelectorAll("[data-map]").forEach(s => {
     s.value = state.mappings[s.dataset.map] || "";
     s.onchange = () => {
@@ -189,8 +189,8 @@ function renderGenerate(app) {
     <div class="field" style="margin-top:14px"><label>PDF quality</label><select id="rasterScale"><option value="1">Standard</option><option value="2">High (recommended)</option><option value="3">Very high</option></select></div>
     <p class="mini-help" style="margin-top:9px">Example: {{CERTIFICATE_ID}}_{{NAME}}.pdf</p>
   </div>
-  <div class="card panel"><h2>Batch summary</h2><div class="metric-grid"><div class="metric"><strong>${val.valid}</strong><span>PDF FILES</span></div><div class="metric"><strong>${val.missingName}</strong><span>ROWS SKIPPED</span></div><div class="metric"><strong>${val.duplicateNames}</strong><span>DUPLICATE NAMES</span></div></div><div style="height:20px"></div><button class="btn primary" id="generateBtn" style="width:100%;padding:13px">GENERATE ALL CERTIFICATES</button><div style="height:15px"></div><div class="progress"><div id="progressBar"></div></div><div id="progressText" class="mini-help" style="margin-top:8px">Ready.</div></div></div>
-  <div style="height:16px"></div><div id="resultCard"></div></div>`;
+  <div class="card panel"><h2>Batch summary</h2><div class="metric-grid"><div class="metric"><strong>${val.valid}</strong><span>PDF FILES</span></div><div class="metric"><strong>${val.missingName}</strong><span>ROWS SKIPPED</span></div><div class="metric"><strong>${val.duplicateNames}</strong><span>DUPLICATE NAMES</span></div></div><div class="section-gap"></div><button class="btn primary" id="generateBtn" style="width:100%;padding:13px">GENERATE ALL CERTIFICATES</button><div class="section-gap"></div><div class="progress"><div id="progressBar"></div></div><div id="progressText" class="mini-help" style="margin-top:8px">Ready.</div></div></div>
+  <div class="section-gap"></div><div id="resultCard"></div></div>`;
 
   const refs = { prefix: document.getElementById("prefix"), year: document.getElementById("year"), start: document.getElementById("start"), digits: document.getElementById("digits"), filename: document.getElementById("filename"), rasterScale: document.getElementById("rasterScale") };
   refs.prefix.value = state.certificate.prefix; refs.year.value = state.certificate.year; refs.start.value = state.certificate.start; refs.digits.value = state.certificate.digits; refs.filename.value = state.settings.filename; refs.rasterScale.value = String(state.settings.rasterScale || 2);
@@ -233,11 +233,11 @@ function renderGenerate(app) {
     sync(false); generate.disabled = true; document.getElementById("resultCard").innerHTML = "";
     try {
       const result = await generateAll();
-      document.getElementById("resultCard").innerHTML = `<div class="card panel">
+      document.getElementById("resultCard").innerHTML = `<div class="card panel result-card">
         <h2>Generation complete</h2>
         <p class="lead">${result.files.length} PDFs are ready${result.skipped ? `; ${result.skipped} invalid row(s) were skipped` : ""}.</p>
-        <div style="height:15px"></div>
-        <div class="toolbar">
+        <div class="section-gap"></div>
+        <div class="page-actions">
           <button class="btn primary" id="downloadZip">DOWNLOAD ZIP (${result.files.length} PDFs)</button>
           <button class="btn" id="downloadRegistry">DOWNLOAD VERIFICATION REGISTRY (JSON)</button>
           <a href="verify.html" target="_blank" class="btn ghost">OPEN VERIFICATION PORTAL ↗</a>
