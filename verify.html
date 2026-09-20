@@ -125,15 +125,18 @@ function esc(str) {
   return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function computeSignature(id, name, event, date, org, secret = 'CertiForge-Secure-Salt') {
-  const canonical = [
+function computeSignature(id, name, event, role, date, org, version = 1, salt = 'CertiForge-Secure-Salt') {
+  const fields = [
     String(id || '').trim(),
     String(name || '').trim(),
-    String(event || '').trim(),
+    String(event || '').trim()
+  ];
+  if (Number(version) >= 2) fields.push(String(role || '').trim());
+  fields.push(
     String(date || '').trim(),
     String(org || '').trim()
-  ].join('|');
-  return sha256(canonical + '|' + secret).slice(0, 16);
+  );
+  return sha256(fields.join('|') + '|' + salt).slice(0, 16);
 }
 
 let loadedRegistry = null;
@@ -148,45 +151,51 @@ async function init() {
   const date = params.get('date') || params.get('d');
   const org = params.get('org') || params.get('o');
   const sig = params.get('sig') || params.get('s');
+  const version = Number(params.get('v') || 1);
 
-  // If URL has QR parameters, verify immediately
+  // Load an optional issuer-published registry before evaluating QR data.
+  try {
+    const res = await fetch('verification-registry.json', { cache: 'no-store' });
+    if (res.ok) loadedRegistry = await res.json();
+  } catch (_) {
+    // A published registry is optional.
+  }
+
   if (id && (name || sig)) {
-    verifyPayload({ id, name, event, role, date, org, sig });
+    const registryRecord = Array.isArray(loadedRegistry?.certificates)
+      ? loadedRegistry.certificates.find(c => String(c.id) === String(id) && String(c.sig || '').toLowerCase() === String(sig || '').toLowerCase())
+      : null;
+    verifyPayload({ id, name, event, role, date, org, sig, version }, { registryMatched: Boolean(registryRecord) });
     return;
   }
 
-  // Otherwise, display interactive search portal
   renderPortalSearch();
 
-  // Try auto-loading verification-registry.json if deployed in same folder
-  try {
-    const res = await fetch('verification-registry.json');
-    if (res.ok) {
-      loadedRegistry = await res.json();
-      const info = document.getElementById('registryStatus');
-      if (info && loadedRegistry.certificates) {
-        info.innerHTML = `Loaded public registry: <strong>${loadedRegistry.certificates.length} verified certificates</strong> for <em>${esc(loadedRegistry.event || loadedRegistry.project || 'Conference')}</em>.`;
-      }
-    }
-  } catch (_) {
-    // Registry not published statically, normal behavior
+  const info = document.getElementById('registryStatus');
+  if (info && Array.isArray(loadedRegistry?.certificates)) {
+    info.innerHTML = `Loaded public registry: <strong>${loadedRegistry.certificates.length} certificate records</strong> for <em>${esc(loadedRegistry.event || loadedRegistry.project || 'Conference')}</em>.`;
   }
 }
 
-function verifyPayload({ id, name, event, role, date, org, sig }) {
+function verifyPayload({ id, name, event, role, date, org, sig, version = 1 }, { registryMatched = false } = {}) {
   const card = document.getElementById('verifyCard');
-  const expectedSig = computeSignature(id, name, event, date, org);
-  const isValid = sig && (sig.toLowerCase() === expectedSig.toLowerCase());
+  const expectedSig = computeSignature(id, name, event, role, date, org, version);
+  const isValid = Boolean(sig) && (sig.toLowerCase() === expectedSig.toLowerCase());
 
   if (isValid) {
+    const statusText = registryMatched ? 'Registry Record Match' : 'Integrity Check Passed';
+    const titleText = registryMatched ? 'Certificate Record Matched' : 'Certificate Data Intact';
+    const subText = registryMatched
+      ? 'The supplied certificate data matches the active registry record and its integrity digest.'
+      : 'The supplied data matches its self-contained integrity digest. This alone does not authenticate the issuer.';
     card.innerHTML = `
       <div class="verify-head">
         <div class="status-badge verified">
           <div class="status-icon">✓</div>
-          <span>Authentic Certificate</span>
+          <span>${statusText}</span>
         </div>
-        <h1 class="verify-title">Credential Verified</h1>
-        <p class="verify-sub">This certificate record has been cryptographically confirmed.</p>
+        <h1 class="verify-title">${titleText}</h1>
+        <p class="verify-sub">${subText}</p>
       </div>
       <div class="verify-body">
         <div class="detail-grid">
@@ -225,7 +234,7 @@ function verifyPayload({ id, name, event, role, date, org, sig }) {
         </div>
 
         <div class="security-notice">
-          <strong>Cryptographic Authenticity:</strong> This credential matches the tamper-evident SHA-256 signature generated at certificate issuance. Any alteration to the name, ID, or event invalidates this record.
+          <strong>Verification scope:</strong> The SHA-256-derived digest detects changes to the certificate data. ${registryMatched ? 'This record also matches the currently loaded registry.' : 'Without a trusted issuer-published registry or asymmetric digital signature, this check is not independent proof of issuer identity.'}
         </div>
 
         <div class="verify-actions">
@@ -329,8 +338,9 @@ function renderPortalSearch() {
         role: match.role,
         date: match.date,
         org: match.organization || loadedRegistry.organization,
-        sig: match.sig
-      });
+        sig: match.sig,
+        version: Number(match.sigVersion || 1)
+      }, { registryMatched: true });
     } else {
       resEl.innerHTML = `<div class="notice" style="color:#b42318;border-color:#fecdd3;background:#fff5f5">No record found for Certificate ID "<strong>${esc(q)}</strong>" in the active registry.</div>`;
     }
