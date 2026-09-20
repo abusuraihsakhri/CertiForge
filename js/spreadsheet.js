@@ -41,4 +41,5 @@ export async function parseSpreadsheet(file) {
   state.columns = Object.keys(rows[0]);
   state.sampleIndex = 0;
   autoMap();
+  state.dirtySinceSave = true;
 }
