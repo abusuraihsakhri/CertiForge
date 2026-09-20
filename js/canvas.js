@@ -1,15 +1,58 @@
 import { state } from './state.js';
 import { getTemplate } from './templates.js';
-import { resolveText, sampleRecord } from './variables.js';
+import { resolveText, sampleRecord, verificationContext } from './variables.js';
 import { pushHistory } from './history.js';
-import { renderCurrentEditor } from './editor.js';
+import { renderCurrentEditor, renderProperties } from './editor.js';
 import { snapThreshold } from './config.js';
+import { escapeHTML } from './utils.js';
+import { generateQRDataUrl } from './qrcode.js';
 
 const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+
+function num(v, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function sel(id) {
+  const escaped = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(id) : String(id).replace(/[^a-zA-Z0-9_-]/g, '');
+  return `[data-id="${escaped}"]`;
+}
+
+function shapeNode(e, t) {
+  // Locked template chrome: polygons use full-page SVG overlays (their points are
+  // absolute page coordinates), circles get a bounding box. None take pointer events.
+  const el = document.createElement("div");
+  el.className = "canvas-element shape-element";
+  el.dataset.id = e.id;
+  el.style.pointerEvents = "none";
+  if (e.shape === "polygon" && e.points) {
+    Object.assign(el.style, { left: "0%", top: "0%", width: "100%", height: "100%", background: "transparent" });
+    el.innerHTML = `<svg viewBox="0 0 ${t.page.width} ${t.page.height}" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><polygon points="${escapeHTML(e.points)}" fill="${escapeHTML(e.fill || "none")}" stroke="${escapeHTML(e.stroke || "none")}" stroke-width="${num(e.strokeWidth)}"/></svg>`;
+  } else if (e.shape === "circle") {
+    const r = num(e.r, 5);
+    el.style.left = (num(e.cx, t.page.width / 2) - r) / t.page.width * 100 + "%";
+    el.style.top = (num(e.cy, t.page.height / 2) - r) / t.page.height * 100 + "%";
+    el.style.width = (2 * r) / t.page.width * 100 + "%";
+    el.style.height = (2 * r) / t.page.height * 100 + "%";
+    el.style.background = e.fill || "transparent";
+    el.style.border = `${num(e.strokeWidth)}px solid ${e.stroke || "transparent"}`;
+    el.style.borderRadius = "50%";
+  } else {
+    el.style.left = (num(e.x) / t.page.width * 100) + "%";
+    el.style.top = (num(e.y) / t.page.height * 100) + "%";
+    el.style.width = (num(e.w) / t.page.width * 100) + "%";
+    el.style.height = (num(e.h) / t.page.height * 100) + "%";
+    el.style.background = e.fill || "transparent";
+    el.style.border = `${num(e.strokeWidth)}px solid ${e.stroke || "transparent"}`;
+  }
+  return el;
+}
 
 export function renderCanvas(container, row = null, interactive = false) {
   const t = getTemplate(state.templateId);
   const data = row || sampleRecord();
+  const vc = verificationContext(data, state.sampleIndex);
   container.innerHTML = "";
   container.className = "certificate-canvas";
   container.style.background = t.background;
@@ -22,35 +65,27 @@ export function renderCanvas(container, row = null, interactive = false) {
   };
 
   state.elements.forEach(e => {
+    if (e.type === "shape") {
+      container.appendChild(shapeNode(e, t));
+      return;
+    }
     let el = document.createElement("div");
     el.className = "canvas-element";
     el.dataset.id = e.id;
-    el.style.left = (e.x * sx) + "%";
-    el.style.top = (e.y * sy) + "%";
-    el.style.width = ((e.w || 0) * sx) + "%";
-    if (e.h) el.style.height = (e.h * sy) + "%";
+    el.style.left = (num(e.x) * sx) + "%";
+    el.style.top = (num(e.y) * sy) + "%";
+    el.style.width = (num(e.w) * sx) + "%";
+    if (e.h) el.style.height = (num(e.h) * sy) + "%";
 
-    if (e.type === "shape") {
-      if (e.shape === "polygon" && e.points) {
-        el.style.background = "transparent";
-        el.innerHTML = `<svg viewBox="0 0 ${t.page.width} ${t.page.height}" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><polygon points="${e.points}" fill="${e.fill || "none"}" stroke="${e.stroke || "none"}" stroke-width="${e.strokeWidth || 0}"/></svg>`;
-      } else if (e.shape === "circle") {
-        el.style.background = e.fill || "transparent";
-        el.style.border = `${e.strokeWidth || 0}px solid ${e.stroke || "transparent"}`;
-        el.style.borderRadius = "50%";
-      } else {
-        el.style.background = e.fill || "transparent";
-        el.style.border = `${e.strokeWidth || 0}px solid ${e.stroke || "transparent"}`;
-      }
-    } else if (e.type === "text") {
-      el.textContent = resolveText(e.text, data, state.sampleIndex);
+    if (e.type === "text") {
+      el.textContent = resolveText(e.text, data, vc);
       el.style.transform = "translate(-50%,-50%)";
       el.style.fontFamily = e.font || "Arial";
-      el.style.fontSize = `calc(${e.size || 16}px * var(--cf-scale, 1))`;
-      el.style.fontWeight = e.weight || 400;
+      el.style.fontSize = `calc(${num(e.size, 16)}px * var(--cf-scale, 1))`;
+      el.style.fontWeight = num(e.weight, 400);
       el.style.color = e.color || "#17191d";
-      el.style.textAlign = e.align || "center";
-      el.style.lineHeight = e.lineHeight || 1.25;
+      el.style.textAlign = ["left", "center", "right"].includes(e.align) ? e.align : "center";
+      el.style.lineHeight = num(e.lineHeight, 1.25);
       el.style.whiteSpace = "pre-wrap";
     } else if (e.type === "image") {
       el = document.createElement("img");
@@ -59,20 +94,27 @@ export function renderCanvas(container, row = null, interactive = false) {
       el.src = e.src || "";
       el.alt = e.name || "Uploaded image";
       el.draggable = false;
-      el.style.left = (e.x * sx) + "%";
-      el.style.top = (e.y * sy) + "%";
-      el.style.width = ((e.w || 180) * sx) + "%";
-      el.style.height = ((e.h || 90) * sy) + "%";
+      el.style.left = (num(e.x) * sx) + "%";
+      el.style.top = (num(e.y) * sy) + "%";
+      el.style.width = (num(e.w, 180) * sx) + "%";
+      el.style.height = (num(e.h, 90) * sy) + "%";
       el.style.transform = "translate(-50%,-50%)";
       el.style.objectFit = e.fit || "contain";
       el.style.opacity = e.opacity == null ? 1 : e.opacity;
     } else if (e.type === "qr") {
-      el.innerHTML = e._svg || "";
       el.style.background = "transparent";
       el.style.transform = "translate(-50%,-50%)";
       el.style.display = "flex";
       el.style.alignItems = "center";
       el.style.justifyContent = "center";
+      const qrImg = document.createElement("img");
+      qrImg.src = e._qrDataUrl || generateQRDataUrl(resolveText(e.text || "{{VERIFY_URL}}", data, vc), 200);
+      qrImg.alt = "QR code linking to certificate verification";
+      qrImg.draggable = false;
+      qrImg.style.width = "100%";
+      qrImg.style.height = "100%";
+      qrImg.style.objectFit = "contain";
+      el.appendChild(qrImg);
     }
 
     if (e.id === state.selectedElement) {
@@ -81,9 +123,23 @@ export function renderCanvas(container, row = null, interactive = false) {
         appendResizeHandles(el, e, sx, sy);
       }
     }
+
     if (interactive && !e.locked) {
+      el.tabIndex = 0;
+      el.dataset.nudge = "1";
       el.addEventListener("pointerdown", ev => beginDragElement(ev, e, container, t));
       el.addEventListener("click", ev => { ev.stopPropagation(); state.selectedElement = e.id; renderCurrentEditor(); });
+      el.addEventListener("focus", () => {
+        if (state.selectedElement === e.id) return;
+        state.selectedElement = e.id;
+        container.querySelectorAll(".canvas-element.selected").forEach(n => n.classList.remove("selected"));
+        el.classList.add("selected");
+        renderProperties();
+      });
+      el.addEventListener("keydown", ev => nudgeElement(ev, e, t, container));
+      el.addEventListener("keyup", ev => {
+        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(ev.key)) pushHistory();
+      });
     }
     container.appendChild(el);
   });
@@ -97,17 +153,53 @@ export function renderCanvas(container, row = null, interactive = false) {
   }
 }
 
+function nudgeElement(ev, e, t, container) {
+  const step = ev.shiftKey ? 1 : 8;
+  const map = { ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] };
+  const d = map[ev.key];
+  if (!d || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+  ev.preventDefault();
+  e.x = Math.max(0, Math.min(t.page.width, num(e.x) + d[0]));
+  e.y = Math.max(0, Math.min(t.page.height, num(e.y) + d[1]));
+  const node = container.querySelector(sel(e.id));
+  if (node) {
+    node.style.left = (e.x / t.page.width * 100) + "%";
+    node.style.top = (e.y / t.page.height * 100) + "%";
+  }
+  const propX = document.getElementById("propX");
+  const propY = document.getElementById("propY");
+  if (propX) propX.value = e.x;
+  if (propY) propY.value = e.y;
+}
+
 function appendResizeHandles(el, e, sx, sy) {
   HANDLES.forEach(h => {
     const handle = document.createElement("div");
     handle.className = `resize-handle handle-${h}`;
     handle.dataset.handle = h;
+    handle.setAttribute("aria-hidden", "true");
     handle.addEventListener("pointerdown", ev => {
       ev.preventDefault(); ev.stopPropagation();
       beginResize(ev, h, e, el, sx, sy);
     });
     el.appendChild(handle);
   });
+}
+
+// Attach pointer listeners where they cannot leak: prefer pointer capture on the
+// dragged node, fall back to window, and always clean up on up/cancel.
+function bindPointerCleanup(target, ev, move, up) {
+  let bound = window;
+  try { target.setPointerCapture(ev.pointerId); bound = target; } catch (_) { /* window fallback */ }
+  const remove = () => {
+    bound.removeEventListener("pointermove", move);
+    bound.removeEventListener("pointerup", up);
+    bound.removeEventListener("pointercancel", up);
+  };
+  bound.addEventListener("pointermove", move);
+  bound.addEventListener("pointerup", up);
+  bound.addEventListener("pointercancel", up);
+  return remove;
 }
 
 export function beginDragElement(ev, e, container, t) {
@@ -123,8 +215,8 @@ export function beginDragElement(ev, e, container, t) {
     const others = state.elements.filter(o => o.id !== e.id);
     others.forEach(o => {
       const candidates = [
-        { val: o.x, type: "v" }, { val: o.x + (o.w || 0) / 2, type: "v" }, { val: o.x + (o.w || 0), type: "v" },
-        { val: o.y, type: "h" }, { val: o.y + (o.h || 0) / 2, type: "h" }, { val: o.y + (o.h || 0), type: "h" }
+        { val: o.x, type: "v" }, { val: num(o.x) + num(o.w) / 2, type: "v" }, { val: num(o.x) + num(o.w), type: "v" },
+        { val: o.y, type: "h" }, { val: num(o.y) + num(o.h) / 2, type: "h" }, { val: num(o.y) + num(o.h), type: "h" }
       ];
       candidates.forEach(c => {
         if (c.type === "v" && Math.abs((x - c.val) / t.page.width * rect.width) < snapThreshold) {
@@ -149,8 +241,8 @@ export function beginDragElement(ev, e, container, t) {
     let nx = origX + dx, ny = origY + dy;
     const others = state.elements.filter(o => o.id !== e.id);
     others.forEach(o => {
-      [o.x, o.x + (o.w || 0) / 2, o.x + (o.w || 0)].forEach(v => { if (Math.abs(nx - v) < snapThreshold / rect.width * t.page.width) nx = v; });
-      [o.y, o.y + (o.h || 0) / 2, o.y + (o.h || 0)].forEach(v => { if (Math.abs(ny - v) < snapThreshold / rect.height * t.page.height) ny = v; });
+      [o.x, num(o.x) + num(o.w) / 2, num(o.x) + num(o.w)].forEach(v => { if (Math.abs(nx - v) < snapThreshold / rect.width * t.page.width) nx = v; });
+      [o.y, num(o.y) + num(o.h) / 2, num(o.y) + num(o.h)].forEach(v => { if (Math.abs(ny - v) < snapThreshold / rect.height * t.page.height) ny = v; });
     });
 
     const isCentered = (e.type === "text" || e.type === "image" || e.type === "qr");
@@ -158,17 +250,16 @@ export function beginDragElement(ev, e, container, t) {
       e.x = Math.round(Math.max(10, Math.min(t.page.width - 10, nx)));
       e.y = Math.round(Math.max(10, Math.min(t.page.height - 10, ny)));
     } else {
-      e.x = Math.round(Math.max(0, Math.min(t.page.width - (e.w || 0), nx)));
-      e.y = Math.round(Math.max(0, Math.min(t.page.height - (e.h || 0), ny)));
+      e.x = Math.round(Math.max(0, Math.min(t.page.width - num(e.w), nx)));
+      e.y = Math.round(Math.max(0, Math.min(t.page.height - num(e.h), ny)));
     }
 
-    const node = container.querySelector(`[data-id="${e.id}"]`);
+    const node = container.querySelector(sel(e.id));
     if (node) {
       node.style.left = (e.x / t.page.width * 100) + "%";
       node.style.top = (e.y / t.page.height * 100) + "%";
     }
 
-    // Live update property panel coordinates if visible
     const propX = document.getElementById("propX");
     const propY = document.getElementById("propY");
     if (propX) propX.value = e.x;
@@ -178,24 +269,27 @@ export function beginDragElement(ev, e, container, t) {
   };
 
   const up = () => {
-    window.removeEventListener("pointermove", move);
-    window.removeEventListener("pointerup", up);
+    remove();
     guides.forEach(g => g.remove());
     guides = [];
-    renderCurrentEditor();
-    pushHistory();
+    const moved = e.x !== origX || e.y !== origY;
+    if (moved) { renderCurrentEditor(); pushHistory(); }
   };
-  window.addEventListener("pointermove", move);
-  window.addEventListener("pointerup", up, { once: true });
+  const remove = bindPointerCleanup(ev.currentTarget || ev.target, ev, move, up);
 }
 
 function beginResize(ev, handle, el, node, sx, sy) {
   const t = getTemplate(state.templateId);
   const startX = ev.clientX, startY = ev.clientY;
-  const orig = { x: el.x, y: el.y, w: el.w, h: el.h, size: el.size };
+  const orig = {
+    x: num(el.x), y: num(el.y),
+    w: num(el.w, 40) || 40, h: num(el.h, 0),
+    size: num(el.size, 16) || 16
+  };
   const container = node.parentElement;
   const rect = container.getBoundingClientRect();
   const isCentered = (el.type === "text" || el.type === "image" || el.type === "qr");
+  const isText = el.type === "text";
 
   const move = mv => {
     const dx = (mv.clientX - startX) / rect.width * t.page.width;
@@ -203,21 +297,11 @@ function beginResize(ev, handle, el, node, sx, sy) {
     let nw = orig.w, nh = orig.h, nx = orig.x, ny = orig.y;
 
     if (isCentered) {
-      if (handle.includes("e")) {
-        nw = Math.max(20, orig.w + dx);
-        nx = orig.x + dx / 2;
-      }
-      if (handle.includes("w")) {
-        nw = Math.max(20, orig.w - dx);
-        nx = orig.x + dx / 2;
-      }
-      if (handle.includes("s")) {
-        nh = Math.max(10, orig.h + dy);
-        ny = orig.y + dy / 2;
-      }
-      if (handle.includes("n")) {
-        nh = Math.max(10, orig.h - dy);
-        ny = orig.y + dy / 2;
+      if (handle.includes("e")) { nw = Math.min(t.page.width, Math.max(20, orig.w + dx)); nx = orig.x + dx / 2; }
+      if (handle.includes("w")) { nw = Math.min(t.page.width, Math.max(20, orig.w - dx)); nx = orig.x + dx / 2; }
+      if (!isText) {
+        if (handle.includes("s")) { nh = Math.min(t.page.height, Math.max(10, orig.h + dy)); ny = orig.y + dy / 2; }
+        if (handle.includes("n")) { nh = Math.min(t.page.height, Math.max(10, orig.h - dy)); ny = orig.y + dy / 2; }
       }
     } else {
       if (handle.includes("e")) nw = Math.max(20, orig.w + dx);
@@ -226,13 +310,24 @@ function beginResize(ev, handle, el, node, sx, sy) {
       if (handle.includes("n")) { nh = Math.max(10, orig.h - dy); ny = orig.y + orig.h - nh; }
     }
 
-    el.w = Math.round(nw);
-    el.h = Math.round(nh);
-    el.x = Math.round(nx);
-    el.y = Math.round(ny);
+    const rw = v => Number.isFinite(v) ? Math.round(v) : null;
+    const cx = rw(nx), cy = rw(ny), cw = rw(nw);
+    if (cx != null) el.x = cx;
+    if (cy != null) el.y = cy;
+    if (cw != null) el.w = cw;
+    if (!isText) { const chh = rw(nh); if (chh != null && chh > 0) el.h = chh; }
 
-    if (el.type === "text" && (handle.includes("e") || handle.includes("w"))) {
-      el.size = Math.max(6, Math.round(orig.size * (nw / orig.w)));
+    if (isText) {
+      // Text has no height model: horizontal drag scales the font (as before),
+      // vertical drag steps the font size in line-height increments.
+      if (handle.includes("e") || handle.includes("w")) {
+        el.size = Math.max(6, Math.min(200, Math.round(orig.size * (el.w / orig.w))));
+      } else {
+        const step = Math.round(dy / (orig.size * 1.25));
+        el.size = Math.max(6, Math.min(200, orig.size + (handle.includes("n") ? -step : step)));
+      }
+      const propSize = document.getElementById("propSize");
+      if (propSize) propSize.value = el.size;
     }
 
     node.style.left = (el.x / t.page.width * 100) + "%";
@@ -244,20 +339,16 @@ function beginResize(ev, handle, el, node, sx, sy) {
     const propH = document.getElementById("propH");
     const propX = document.getElementById("propX");
     const propY = document.getElementById("propY");
-    const propSize = document.getElementById("propSize");
     if (propW) propW.value = el.w;
-    if (propH) propH.value = el.h;
+    if (propH && el.h) propH.value = el.h;
     if (propX) propX.value = el.x;
     if (propY) propY.value = el.y;
-    if (propSize && el.size) propSize.value = el.size;
   };
 
   const up = () => {
-    window.removeEventListener("pointermove", move);
-    window.removeEventListener("pointerup", up);
+    remove();
     renderCurrentEditor();
     pushHistory();
   };
-  window.addEventListener("pointermove", move);
-  window.addEventListener("pointerup", up, { once: true });
+  const remove = bindPointerCleanup(ev.currentTarget || ev.target, ev, move, up);
 }

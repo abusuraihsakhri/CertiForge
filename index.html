@@ -3,18 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
   <meta name="description" content="CertiForge is a privacy-first browser-based certificate studio for designing templates, importing participant spreadsheets, generating PDFs in bulk, and verifying certificate records.">
   <title>CertiForge — Certificate Studio</title>
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/editor.css">
   <link rel="stylesheet" href="css/responsive.css">
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 </head>
 <body>
+<a class="skip-link" href="#app">Skip to main content</a>
 <div class="app-shell">
   <header class="topbar">
     <div class="brand">
-      <div class="brand-mark">CF</div>
+      <div class="brand-mark" aria-hidden="true">CF</div>
       <div><strong>CertiForge</strong><span>Certificate Studio</span></div>
     </div>
     <div class="top-actions">
@@ -27,22 +30,22 @@
 
   <main class="workspace">
     <aside class="sidebar left-panel">
-      <section>
+      <nav aria-label="Workflow steps">
         <div class="section-title">WORKFLOW</div>
-        <button class="nav-item active" data-step="templates"><span>01</span> Template</button>
-        <button class="nav-item" data-step="editor"><span>02</span> Design</button>
-        <button class="nav-item" data-step="data"><span>03</span> Participants</button>
-        <button class="nav-item" data-step="mapping"><span>04</span> Mapping</button>
-        <button class="nav-item" data-step="preview"><span>05</span> Preview</button>
-        <button class="nav-item" data-step="generate"><span>06</span> Generate</button>
-      </section>
+        <button class="nav-item active" data-step="templates" aria-current="step"><span aria-hidden="true">01</span> Template</button>
+        <button class="nav-item" data-step="editor"><span aria-hidden="true">02</span> Design</button>
+        <button class="nav-item" data-step="data"><span aria-hidden="true">03</span> Participants</button>
+        <button class="nav-item" data-step="mapping"><span aria-hidden="true">04</span> Mapping</button>
+        <button class="nav-item" data-step="preview"><span aria-hidden="true">05</span> Preview</button>
+        <button class="nav-item" data-step="generate"><span aria-hidden="true">06</span> Generate</button>
+      </nav>
 
       <section class="sidebar-bottom">
         <div class="privacy-card">
-          <div class="privacy-icon">✓</div>
+          <div class="privacy-icon" aria-hidden="true">✓</div>
           <div><strong>Local-first</strong><p>Your participant data is processed in this browser.</p></div>
         </div>
-        <button class="nav-item" id="helpBtn"><span>?</span> Help</button>
+        <button class="nav-item" id="helpBtn" aria-haspopup="dialog"><span aria-hidden="true">?</span> Help</button>
       </section>
     </aside>
 
@@ -52,8 +55,8 @@
   </main>
 </div>
 
-<div id="toast" class="toast"></div>
-<input id="projectFileInput" type="file" accept=".certiforge,.json" hidden>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<input id="projectFileInput" type="file" accept=".certiforge,.json" aria-label="Choose CertiForge project file" hidden>
 
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>

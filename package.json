@@ -1,10 +1,13 @@
 {
   "name": "certiforge",
-  "version": "0.3.1",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node tests/logic.test.js"
+  },
+  "engines": {
+    "node": ">=20.19"
   },
   "description": "Privacy-first browser-based certificate studio for bulk design, spreadsheet-driven generation, PDF export, and verification."
 }

@@ -26,11 +26,24 @@ export function autoMap() {
   state.mappings = m;
 }
 
+/**
+ * Merge globals + arbitrary column tokens + explicit mappings per row.
+ * An empty cell never blanks a conference-wide value: mapped cells override
+ * globals only when they actually contain something.
+ */
 export function mappedRows() {
   return state.rows.map(r => {
     const o = Object.assign({}, state.globalFields || {});
-    Object.entries(r).forEach(([k, v]) => { const token = columnToken(k); if (token && !variableKeys.includes(token)) o[token] = v; });
-    Object.entries(state.mappings).forEach(([v, col]) => { if (col) o[v] = r[col]; });
+    Object.entries(r).forEach(([k, v]) => {
+      if (k === "__proto__" || k === "constructor" || k === "prototype") return;
+      const token = columnToken(k);
+      if (token && !variableKeys.includes(token)) o[token] = v;
+    });
+    Object.entries(state.mappings || {}).forEach(([v, col]) => {
+      if (!col || !variableKeys.includes(v)) return;
+      const val = r[col];
+      if (val != null && String(val).trim() !== "") o[v] = String(val);
+    });
     return o;
   });
 }

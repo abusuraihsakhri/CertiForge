@@ -1,5 +1,3 @@
-import { escapeHTML } from './utils.js';
-
 export function getQRInstance(text, errorCorrection = 'M') {
   const qrFn = (typeof window !== 'undefined' && window.qrcode) || (typeof global !== 'undefined' && global.qrcode);
   if (!qrFn) return null;

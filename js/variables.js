@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { verifyBaseUrl } from './config.js';
 
 export const variableKeys = [
   "NAME", "ROLE", "EVENT", "DATE", "VENUE",
@@ -7,6 +8,9 @@ export const variableKeys = [
   "EDITION", "AWARD_RANK", "PAPER_TITLE", "PAPER_TYPE",
   "CME_HOURS", "CME_REF", "COUNCIL_REG_NO"
 ];
+
+// Fields covered by the tamper-evident digest, in canonical order.
+export const SIGNATURE_FIELDS = ["id", "name", "role", "event", "date", "organization"];
 
 function rightRotate(value, amount) {
   return (value >>> amount) | (value << (32 - amount));
@@ -86,92 +90,134 @@ export function extractConferenceYear(name) {
   return m ? m[1] : String(new Date().getFullYear());
 }
 
-export function getVerificationBaseUrl() {
-  if (typeof window !== 'undefined' && window.location && window.location.origin) {
-    const path = window.location.pathname.replace(/\/[^\/]*$/, '');
-    return `${window.location.origin}${path}/verify.html`;
+export function getVerificationBaseUrl(loc = (typeof window !== 'undefined' ? window.location : null)) {
+  const origin = loc && loc.origin;
+  if (loc && origin && origin !== 'null' && /^https?:/i.test(origin)) {
+    const path = String(loc.pathname || '');
+    const dir = path.slice(0, path.lastIndexOf('/') + 1);
+    return `${origin}${dir}verify.html`;
   }
-  return 'https://abusuraihsakhri.github.io/CertiForge/verify.html';
+  return verifyBaseUrl;
 }
 
-export function computeVerificationSignature(data, salt = 'CertiForge-Secure-Salt', version = 2) {
-  const fields = [
-    String(data.CERTIFICATE_ID || data.id || '').trim(),
-    String(data.NAME || data.name || '').trim(),
-    String(data.EVENT || data.event || '').trim()
-  ];
-  if (Number(version) >= 2) fields.push(String(data.ROLE || data.role || '').trim());
-  fields.push(
-    String(data.DATE || data.date || '').trim(),
-    String(data.ORGANIZATION || data.organization || data.org || '').trim()
-  );
-  return sha256(`${fields.join('|')}|${salt}`).slice(0, 16);
+export function canonicalSignatureFields(data = {}) {
+  return {
+    id: String(data.CERTIFICATE_ID ?? data.id ?? '').trim(),
+    name: String(data.NAME ?? data.name ?? '').trim(),
+    role: String(data.ROLE ?? data.role ?? '').trim(),
+    event: String(data.EVENT ?? data.event ?? '').trim(),
+    date: String(data.DATE ?? data.date ?? '').trim(),
+    organization: String(data.ORGANIZATION ?? data.organization ?? data.org ?? '').trim()
+  };
 }
 
-export function getVerificationUrl(data, salt = 'CertiForge-Secure-Salt') {
-  const baseUrl = getVerificationBaseUrl();
-  const certId = String(data.CERTIFICATE_ID || data.id || '');
-  const version = 2;
-  const sig = computeVerificationSignature(data, salt, version);
+// Length-prefixed canonicalization prevents "A|B"+"" colliding with "A"+"|B".
+export function canonicalPayload(fields) {
+  const f = canonicalSignatureFields(fields);
+  return "v2|" + SIGNATURE_FIELDS.map(key => {
+    const value = f[key];
+    return `${value.length}:${value}`;
+  }).join("|");
+}
+
+export function computeVerificationSignature(data, secret) {
+  const key = typeof secret === "string" ? secret : "";
+  if (!key) throw new Error("A signing secret is required. Set one in the Generate step.");
+  return sha256(`${canonicalPayload(data)}|${key}`).slice(0, 16);
+}
+
+export function buildVerificationUrl(fields, sig) {
+  const f = canonicalSignatureFields(fields);
   const p = new URLSearchParams();
-  p.set('v', String(version));
-  if (certId) p.set('id', certId);
-  if (data.NAME || data.name) p.set('name', String(data.NAME || data.name));
-  if (data.ROLE || data.role) p.set('role', String(data.ROLE || data.role));
-  if (data.EVENT || data.event) p.set('event', String(data.EVENT || data.event));
-  if (data.DATE || data.date) p.set('date', String(data.DATE || data.date));
-  if (data.ORGANIZATION || data.organization || data.org) p.set('org', String(data.ORGANIZATION || data.organization || data.org));
-  p.set('sig', sig);
-  return `${baseUrl}?${p.toString()}`;
+  if (f.id) p.set('id', f.id);
+  if (f.name) p.set('name', f.name);
+  if (f.role) p.set('role', f.role);
+  if (f.event) p.set('event', f.event);
+  if (f.date) p.set('date', f.date);
+  if (f.organization) p.set('org', f.organization);
+  if (sig) p.set('sig', sig);
+  return `${getVerificationBaseUrl()}?${p.toString()}`;
+}
+
+export function getVerificationUrl(data, secret) {
+  const sig = computeVerificationSignature(data, secret);
+  return buildVerificationUrl(data, sig);
+}
+
+/**
+ * Per-record verification context: computes the ID, digest and QR URL exactly once.
+ * Registry rows, PDF output and the preview all consume this same object, so what
+ * is previewed is byte-identical to what is printed and registered.
+ */
+export function verificationContext(row, index = 0) {
+  const data = Object.assign({}, state.globalFields || {}, row || {});
+  const certId = formatId(Number(state.certificate.start) + (Number(index) || 0));
+  const fields = canonicalSignatureFields({
+    id: certId,
+    name: data.NAME,
+    role: data.ROLE,
+    event: data.EVENT,
+    date: data.DATE,
+    organization: data.ORGANIZATION
+  });
+  const sig = computeVerificationSignature(fields, state.settings?.verifySecret);
+  return {
+    CERTIFICATE_ID: certId,
+    YEAR: String(state.certificate.year ?? ""),
+    VERIFY_SIG: sig,
+    VERIFY_URL: buildVerificationUrl(fields, sig)
+  };
 }
 
 export function formatId(n) {
-  const c = state.certificate, num = String(n).padStart(Number(c.digits) || 4, "0");
-  return [c.prefix, c.year, num].filter(Boolean).join(c.separator || "-");
+  const c = state.certificate;
+  const digits = Math.max(1, Math.min(8, Number(c.digits) || 4));
+  const num = String(Math.max(0, Math.floor(Number(n) || 0))).padStart(digits, "0");
+  return [c.prefix, c.year, num].filter(Boolean).join(c.separator ?? "-");
 }
 
 export function columnToken(name) {
   return String(name || "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
+// Generic stand-in record used ONLY by the design canvas / template previews.
+// It is never merged into generated output (see resolveText).
 export function sampleRecord() {
   const raw = state.rows[state.sampleIndex] || {};
   const custom = {};
   Object.entries(raw).forEach(([k, v]) => { const token = columnToken(k); if (token && !variableKeys.includes(token)) custom[token] = v; });
   return Object.assign({
-    NAME: "NAME",
+    NAME: "Participant Name",
     ROLE: "Delegate",
-    EVENT: "32nd Annual Conference of Delhi Society of Haematology",
-    DATE: "8th October 2026",
-    VENUE: "Maulana Azad Medical College, New Delhi",
-    ORGANIZATION: "Delhi Society of Haematology",
-    INSTITUTION: "Maulana Azad Medical College",
-    DEPARTMENT: "Department of Pathology",
-    EMAIL: "name@example.com",
-    YEAR: state.certificate.year,
-    EDITION: "32nd",
-    AWARD_RANK: "Third",
-    PAPER_TYPE: "Case report",
-    PAPER_TITLE: "Autoimmune Disorder and Myelodysplastic Syndrome - Cause or Effect",
-    CME_HOURS: "4",
-    CME_REF: "DMC/CME/2026/894",
-    COUNCIL_REG_NO: "DMC-84920"
+    EVENT: "Conference or Event Name",
+    DATE: "Event Date",
+    VENUE: "Event Venue",
+    ORGANIZATION: "Issuing Organization",
+    INSTITUTION: "Institution",
+    DEPARTMENT: "Department",
+    EMAIL: "participant@example.com",
+    EDITION: "1st",
+    AWARD_RANK: "First",
+    PAPER_TYPE: "Paper type",
+    PAPER_TITLE: "Paper or project title",
+    CME_HOURS: "0",
+    CME_REF: "CME/REF/000",
+    COUNCIL_REG_NO: "REG-00000"
   }, state.globalFields || {}, custom, raw);
 }
 
-export function resolveText(text, row, index = 0) {
-  let out = String(text ?? "");
-  // Production resolution must never inherit demo/sample participant values.
-  // Callers that need preview data should pass sampleRecord() explicitly.
-  const data = Object.assign({}, state.globalFields || {}, row || {});
-  const certId = formatId(Number(state.certificate.start) + index);
-  data.CERTIFICATE_ID = certId;
-  data.YEAR = state.certificate.year;
-  data.VERIFY_SIG = computeVerificationSignature(data);
-  data.VERIFY_URL = getVerificationUrl(data);
-
-  Object.keys(data).forEach(k => {
-    out = out.replaceAll(`{{${k}}}`, data[k] == null ? "" : String(data[k]));
+/**
+ * Single-pass {{TOKEN}} substitution. Values are never re-scanned, so a field
+ * containing "{{NAME}}" cannot inject itself into other tokens. Real output only
+ * ever uses real mapped data + conference-wide globals — no sample values leak.
+ */
+export function resolveText(text, row, ctxOrIndex = 0) {
+  const ctx = (ctxOrIndex && typeof ctxOrIndex === "object")
+    ? ctxOrIndex
+    : verificationContext(row, Number(ctxOrIndex) || 0);
+  const data = Object.assign({}, state.globalFields || {}, row || {}, ctx);
+  return String(text ?? "").replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (_, key) => {
+    const v = data[key];
+    return v == null ? "" : String(v);
   });
-  return out.replace(/{{[A-Z0-9_]+}}/g, "");
 }

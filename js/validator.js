@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { mappedRows } from './mapping.js';
+import { LEGACY_VERIFY_SALT } from './config.js';
 
 export function validateRows() {
   const mapped = mappedRows();
@@ -15,6 +16,9 @@ export function validateProject() {
   if (!state.rows.length) errors.push("No participant data loaded.");
   if (!state.mappings.NAME) errors.push("No column mapped to {{NAME}}.");
   if (!state.elements.length) errors.push("Template has no elements.");
+  const secret = String(state.settings.verifySecret || "");
+  if (!secret) errors.push("Set a verification signing secret before generating.");
+  else if (secret === LEGACY_VERIFY_SALT || secret.length < 8) warnings.push("Your signing secret is weak or the well-known default. Click Randomize for stronger tamper evidence.");
   const missingVars = state.elements.filter(e => e.type === "text" && /\{\{[A-Z0-9_]+\}\}/.test(e.text || "") && !e.variable);
   if (missingVars.length > 3) warnings.push(`${missingVars.length} text elements contain unresolved variables.`);
   const val = validateRows();

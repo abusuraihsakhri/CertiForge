@@ -2,6 +2,11 @@ import { state, defaultState } from './state.js';
 import { getTemplate } from './templates.js';
 import { resetHistory } from './history.js';
 import { safeFilename } from './utils.js';
+import { sanitizeProjectState } from './security.js';
+import { clearAutosave } from './storage.js';
+import { maxProjectBytes } from './config.js';
+
+export { SAFE_FONT_DATA_URL } from './security.js';
 
 export function projectData() {
   return {
@@ -11,7 +16,15 @@ export function projectData() {
     elements: state.elements,
     mappings: state.mappings,
     globalFields: state.globalFields,
-    certificate: state.certificate,
+    certificate: {
+      prefix: state.certificate.prefix,
+      year: state.certificate.year,
+      start: state.certificate.start,
+      digits: state.certificate.digits,
+      separator: state.certificate.separator
+    },
+    // NOTE: the project file contains the signing secret. Treat .certiforge files
+    // like a credential — do not publish them publicly.
     settings: state.settings,
     fonts: state.fonts?.map(f => ({ name: f.name, family: f.family, data: f.data }))
   };
@@ -23,43 +36,38 @@ export function saveProject() {
   a.href = URL.createObjectURL(blob);
   a.download = safeFilename(state.projectName || "CertiForge-project") + ".certiforge";
   a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   state.dirtySinceSave = false;
+  clearAutosave();
+}
+
+export async function applySanitizedState(patch) {
+  Object.assign(state, patch);
+  for (const f of state.fonts) {
+    try {
+      const ff = new FontFace(f.family, `url(${f.data})`);
+      const loaded = await ff.load();
+      document.fonts.add(loaded);
+    } catch (e) { console.warn("Could not restore font:", f.name, e); }
+  }
+  resetHistory();
 }
 
 export async function loadProjectFile(file) {
-  if (file.size && file.size > 25 * 1024 * 1024) throw new Error("Project file is too large.");
-  const data = JSON.parse(await file.text());
-  if (!data.version || !Array.isArray(data.elements)) throw new Error("Not a valid CertiForge project.");
-  const template = getTemplate(data.templateId || "modern");
-  const safeElements = data.elements.filter(e => e && typeof e === "object" && ["text", "shape", "image", "qr"].includes(e.type)).map(e => {
-    const n = structuredClone(e);
-    n.id = String(n.id || ("element_" + Date.now()));
-    if (n.type === "image" && n.src && !String(n.src).startsWith("data:image/")) n.src = "";
-    return n;
-  });
-  const restoredFonts = (data.fonts || []).map(f => ({ name: f.name, family: f.family, data: f.data }));
-  const importedSettings = Object.assign({}, data.settings || {});
-  delete importedSettings.verifySecret;
-  Object.assign(state, {
-    projectName: String(data.projectName || "Imported Project"),
-    templateId: template.id,
-    elements: safeElements,
-    mappings: data.mappings && typeof data.mappings === "object" ? data.mappings : {},
-    globalFields: Object.assign({}, defaultState().globalFields, data.globalFields || {}),
-    certificate: Object.assign({}, defaultState().certificate, data.certificate || {}),
-    settings: Object.assign({}, defaultState().settings, importedSettings),
-    fonts: restoredFonts,
-    selectedElement: null, rows: [], columns: [], sampleIndex: 0, generated: []
-  });
-  if (restoredFonts.length) {
-    for (const f of restoredFonts) {
-      try {
-        const ff = new FontFace(f.family, `url(${f.data})`);
-        const loaded = await ff.load();
-        document.fonts.add(loaded);
-      } catch (e) { console.warn("Could not restore font:", f.name, e); }
-    }
+  if (file.size && file.size > maxProjectBytes) throw new Error("Project file is too large (limit 25 MB).");
+  let data;
+  try {
+    data = JSON.parse(await file.text());
+  } catch (_) {
+    throw new Error("Project file is not valid JSON.");
   }
-  resetHistory();
+  if (!data || typeof data !== "object") throw new Error("Not a valid CertiForge project.");
+  if (data.version !== 3) {
+    throw new Error(`Project file version ${data.version ?? "?"} is not supported by this build (expected v3). Re-export it from the version that created it.`);
+  }
+  const patch = sanitizeProjectState(data, defaultState());
+  if (data.templateId && patch.templateId !== data.templateId) {
+    console.warn(`Unknown template "${data.templateId}" in project file; falling back to ${patch.templateId}.`);
+  }
+  await applySanitizedState(patch);
 }
