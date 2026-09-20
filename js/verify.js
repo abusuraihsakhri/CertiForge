@@ -72,7 +72,7 @@ export function evaluateRecord(record, registry) {
 
   const fields = [["Recipient", "name"], ["Role", "role"], ["Event", "event"], ["Issue date", "date"], ["Issuing authority", "organization"]];
   const diffs = fields
-    .filter(([, key]) => norm(record[key]) !== "" && norm(match[key]) !== "" && norm(record[key]).toLowerCase() !== norm(match[key]).toLowerCase())
+    .filter(([, key]) => norm(record[key]).toLowerCase() !== norm(match[key]).toLowerCase())
     .map(([label]) => label);
   if (diffs.length) return { status: 'mismatch', match, diffs };
 
