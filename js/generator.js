@@ -25,13 +25,15 @@ export async function generateAll() {
     results.push({ name: filename + ".pdf", blob });
 
     const certId = formatId(Number(state.certificate.start) + i);
+    const sigVersion = 2;
     const sig = computeVerificationSignature({
       id: certId,
       name: rows[i].NAME,
+      role: rows[i].ROLE,
       event: rows[i].EVENT,
       date: rows[i].DATE,
       organization: rows[i].ORGANIZATION
-    }, state.settings?.verifySecret);
+    }, undefined, sigVersion);
 
     registry.push({
       id: certId,
@@ -40,7 +42,8 @@ export async function generateAll() {
       event: rows[i].EVENT || "",
       date: rows[i].DATE || "",
       organization: rows[i].ORGANIZATION || "",
-      sig: sig,
+      sigVersion,
+      sig,
       filename: filename + ".pdf"
     });
 
