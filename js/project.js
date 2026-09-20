@@ -39,6 +39,8 @@ export async function loadProjectFile(file) {
     return n;
   });
   const restoredFonts = (data.fonts || []).map(f => ({ name: f.name, family: f.family, data: f.data }));
+  const importedSettings = Object.assign({}, data.settings || {});
+  delete importedSettings.verifySecret;
   Object.assign(state, {
     projectName: String(data.projectName || "Imported Project"),
     templateId: template.id,
@@ -46,7 +48,7 @@ export async function loadProjectFile(file) {
     mappings: data.mappings && typeof data.mappings === "object" ? data.mappings : {},
     globalFields: Object.assign({}, defaultState().globalFields, data.globalFields || {}),
     certificate: Object.assign({}, defaultState().certificate, data.certificate || {}),
-    settings: Object.assign({}, defaultState().settings, data.settings || {}),
+    settings: Object.assign({}, defaultState().settings, importedSettings),
     fonts: restoredFonts,
     selectedElement: null, rows: [], columns: [], sampleIndex: 0, generated: []
   });
