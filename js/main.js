@@ -4,10 +4,11 @@ import { saveProject, loadProjectFile } from './project.js';
 import { go, renderStep } from './ui.js';
 import { undo, redo } from './history.js';
 import { toast } from './utils.js';
-import { startAutosave, restoreAutosave } from './storage.js';
+import { startAutosave, restoreAutosave, clearAutosave } from './storage.js';
 
 async function init() {
   const autosave = await restoreAutosave();
+  let initialStep = "templates";
   if (autosave && confirm("A previously unsaved project was found. Restore it?")) {
     const { loadProjectFile } = await import('./project.js');
     const { defaultState: def } = await import('./state.js');
@@ -29,15 +30,23 @@ async function init() {
     }
     const { resetHistory } = await import('./history.js');
     resetHistory();
-    go("editor");
+    initialStep = "editor";
   } else {
+    if (autosave) await clearAutosave();
     loadTemplate("modern");
   }
 
   document.querySelectorAll(".nav-item[data-step]").forEach(b => b.onclick = () => go(b.dataset.step));
   document.getElementById("saveProjectBtn").onclick = () => { saveProject(); toast("Project exported. Participant rows are intentionally not embedded."); };
   document.getElementById("openProjectBtn").onclick = () => document.getElementById("projectFileInput").click();
-  document.getElementById("newProjectBtn").onclick = () => { if (confirm("Start a new project? Unsaved design changes will be lost.")) { Object.assign(state, defaultState()); loadTemplate("modern"); go("templates"); } };
+  document.getElementById("newProjectBtn").onclick = async () => {
+    if (confirm("Start a new project? Unsaved design changes will be lost.")) {
+      await clearAutosave();
+      Object.assign(state, defaultState());
+      loadTemplate("modern");
+      go("templates");
+    }
+  };
   document.getElementById("generateTopBtn").onclick = () => { if (!state.rows.length) { toast("Upload participant data before generating."); go("data"); return; } go("generate"); };
   document.getElementById("helpBtn").onclick = () => alert("CertiForge V0.3\n\n1. Choose a template.\n2. Edit text, drag elements, and upload logos/signatures.\n3. Upload XLSX/XLS/CSV.\n4. Add event details and map participant fields.\n5. Preview.\n6. Generate PDFs and download a ZIP.\n\nParticipant data remains in this browser during the workflow.");
   document.getElementById("projectFileInput").onchange = async e => {
@@ -53,7 +62,7 @@ async function init() {
   });
 
   startAutosave();
-  go("templates");
+  go(initialStep);
 }
 
 if ('serviceWorker' in navigator) {
