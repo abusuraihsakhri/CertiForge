@@ -139,7 +139,7 @@ export function sampleRecord() {
   const custom = {};
   Object.entries(raw).forEach(([k, v]) => { const token = columnToken(k); if (token && !variableKeys.includes(token)) custom[token] = v; });
   return Object.assign({
-    NAME: "Dr Abu Suraih Sakhri. E.P",
+    NAME: "NAME",
     ROLE: "Delegate",
     EVENT: "32nd Annual Conference of Delhi Society of Haematology",
     DATE: "8th October 2026",
@@ -147,7 +147,7 @@ export function sampleRecord() {
     ORGANIZATION: "Delhi Society of Haematology",
     INSTITUTION: "Maulana Azad Medical College",
     DEPARTMENT: "Department of Pathology",
-    EMAIL: "abusuraihsakhri@gmail.com",
+    EMAIL: "name@example.com",
     YEAR: state.certificate.year,
     EDITION: "32nd",
     AWARD_RANK: "Third",
