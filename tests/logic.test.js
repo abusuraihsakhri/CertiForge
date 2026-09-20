@@ -1,5 +1,10 @@
-const fs = require('fs');
-eval(fs.readFileSync(__dirname + '/../vendor/qrcode.min.js', 'utf8'));
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+eval(fs.readFileSync(path.join(__dirname, '../vendor/qrcode.min.js'), 'utf8'));
 
 global.window = global;
 global.document = {
@@ -55,6 +60,7 @@ function assert(x, msg) { if (!x) throw new Error(msg); }
   const sampleCert = {
     CERTIFICATE_ID: 'ICML-2026-0001',
     NAME: 'Alice Example',
+    ROLE: 'Speaker',
     EVENT: 'ICML 2026',
     DATE: '18 Sep 2026',
     ORGANIZATION: 'Society'
@@ -66,9 +72,11 @@ function assert(x, msg) { if (!x) throw new Error(msg); }
   const tamperedCert = { ...sampleCert, NAME: 'Bob Tampered' };
   const sigTampered = computeVerificationSignature(tamperedCert, 'test-secret');
   assert(sig1 !== sigTampered, 'Tampered certificate must produce different signature');
+  const roleTampered = { ...sampleCert, ROLE: 'Delegate' };
+  assert(sig1 !== computeVerificationSignature(roleTampered, 'test-secret'), 'Role tampering must change v2 signature');
 
   const verifyUrl = getVerificationUrl(sampleCert, 'test-secret');
-  assert(verifyUrl.includes('id=ICML-2026-0001') && verifyUrl.includes('sig=') && verifyUrl.includes('name=Alice+Example'), 'Verification URL malformed');
+  assert(verifyUrl.includes('v=2') && verifyUrl.includes('id=ICML-2026-0001') && verifyUrl.includes('sig=') && verifyUrl.includes('name=Alice+Example'), 'Verification URL malformed');
 
   // 3. Test Template and Mapping
   state.elements = structuredClone(getTemplate('modern').elements);
@@ -86,6 +94,7 @@ function assert(x, msg) { if (!x) throw new Error(msg); }
 
   const mapped = mappedRows();
   assert(mapped[0].EVENT === 'Annual Meeting' && mapped[0].REGISTRATION_ID === 'R001', 'mapping/global/custom token failed');
+  assert(resolveText('{{PAPER_TITLE}}', mapped[0], 0) === '', 'Production resolution leaked sample/demo data');
 
   // 4. Test QR Code Element Dynamic Per-Participant Rendering
   state.elements.push({
