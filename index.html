@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
-  <meta name="description" content="CertiForge is a privacy-first browser-based certificate studio for designing templates, importing participant spreadsheets, generating PDFs in bulk, and verifying certificate records.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
+  <meta name="description" content="CertiForge is a privacy-first browser-based certificate studio.">
   <title>CertiForge — Certificate Studio</title>
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/editor.css">
@@ -14,45 +14,54 @@
 </head>
 <body>
 <a class="skip-link" href="#app">Skip to main content</a>
-<div class="app-shell">
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark" aria-hidden="true">CF</div>
-      <div><strong>CertiForge</strong><span>Certificate Studio</span></div>
+<div class="workspace">
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar left-panel">
+    <div style="padding: 24px; text-align: center; border-bottom: 1px solid #d1d8df;">
+      <div class="brand-mark" style="color: var(--color-ink-navy); font-size: 32px; margin-bottom: 8px;">CF</div>
+      <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; color: var(--color-silver);">THE MINT</div>
     </div>
-    <div class="top-actions">
-      <button class="btn ghost" id="newProjectBtn">New</button>
-      <button class="btn ghost" id="openProjectBtn">Open</button>
-      <button class="btn ghost" id="saveProjectBtn">Save</button>
-      <button class="btn primary" id="generateTopBtn">Generate</button>
-    </div>
-  </header>
-
-  <main class="workspace">
-    <aside class="sidebar left-panel">
-      <nav aria-label="Workflow steps">
-        <div class="section-title">WORKFLOW</div>
-        <button class="nav-item active" data-step="templates" aria-current="step"><span aria-hidden="true">01</span> Template</button>
-        <button class="nav-item" data-step="editor"><span aria-hidden="true">02</span> Design</button>
-        <button class="nav-item" data-step="data"><span aria-hidden="true">03</span> Participants</button>
-        <button class="nav-item" data-step="mapping"><span aria-hidden="true">04</span> Mapping</button>
-        <button class="nav-item" data-step="preview"><span aria-hidden="true">05</span> Preview</button>
-        <button class="nav-item" data-step="generate"><span aria-hidden="true">06</span> Generate</button>
-      </nav>
-
-      <section class="sidebar-bottom">
-        <div class="privacy-card">
-          <div class="privacy-icon" aria-hidden="true">✓</div>
-          <div><strong>Local-first</strong><p>Your participant data is processed in this browser.</p></div>
+    <nav aria-label="Workflow steps">
+      <div class="section-title">WORKFLOW</div>
+      <button class="nav-item active" data-step="templates" aria-current="step"><span aria-hidden="true">01</span> Template</button>
+      <button class="nav-item" data-step="editor"><span aria-hidden="true">02</span> Design</button>
+      <button class="nav-item" data-step="data"><span aria-hidden="true">03</span> Participants</button>
+      <button class="nav-item" data-step="mapping"><span aria-hidden="true">04</span> Mapping</button>
+      <button class="nav-item" data-step="preview"><span aria-hidden="true">05</span> Preview</button>
+      <button class="nav-item" data-step="generate"><span aria-hidden="true">06</span> Generate</button>
+    </nav>
+    <section class="sidebar-bottom">
+      <div class="privacy-card">
+        <div class="privacy-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
         </div>
-        <button class="nav-item" id="helpBtn" aria-haspopup="dialog"><span aria-hidden="true">?</span> Help</button>
-      </section>
-    </aside>
-
-    <section class="main-panel">
-      <div id="app"></div>
+        <div><strong>Secure & Local</strong><p>Participant data stays in your browser.</p></div>
+      </div>
+      <button class="nav-item" id="helpBtn" aria-haspopup="dialog"><span aria-hidden="true">?</span> Help</button>
     </section>
-  </main>
+  </aside>
+
+  <!-- MAIN AREA -->
+  <div class="main-panel">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-text">
+          <strong>CertiForge</strong>
+          <span>Certificate Studio</span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="btn ghost" id="newProjectBtn">New</button>
+        <button class="btn ghost" id="openProjectBtn">Open</button>
+        <button class="btn ghost" id="saveProjectBtn">Save</button>
+        <button class="btn primary" id="generateTopBtn">Generate</button>
+      </div>
+    </header>
+
+    <!-- CONTENT -->
+    <main id="app"></main>
+  </div>
 </div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>

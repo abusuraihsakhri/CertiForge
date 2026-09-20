@@ -1,0 +1,437 @@
+{
+  "tool": "comp-diff",
+  "version": 1,
+  "createdAt": "2026-09-20T19:15:52.671Z",
+  "label": "hero",
+  "comp": ".impeccable/mocks/mint_comp_one_1789930848761.jpg",
+  "build": ".impeccable/review/hero-repro.png",
+  "spec": ".impeccable/build/spec.json",
+  "compSize": "1376x768",
+  "buildSize": "1376x768",
+  "align": "top",
+  "overall": 1,
+  "verdict": "match",
+  "scores": {
+    "overall": 1,
+    "structure": 1,
+    "color": 1,
+    "colorIntersection": 1,
+    "paletteMatch": 1,
+    "detail": 1,
+    "detailRaw": 1,
+    "detailAdded": 0,
+    "bands": 1
+  },
+  "palette": {
+    "comp": [
+      {
+        "hex": "#f4f6f6",
+        "coverage": 0.5712
+      },
+      {
+        "hex": "#5c6064",
+        "coverage": 0.1119
+      },
+      {
+        "hex": "#163b57",
+        "coverage": 0.0882
+      },
+      {
+        "hex": "#b3bfc9",
+        "coverage": 0.0841
+      },
+      {
+        "hex": "#285e89",
+        "coverage": 0.0801
+      },
+      {
+        "hex": "#7d8a97",
+        "coverage": 0.0645
+      }
+    ],
+    "build": [
+      {
+        "hex": "#f4f6f6",
+        "coverage": 0.5712
+      },
+      {
+        "hex": "#5c6064",
+        "coverage": 0.1119
+      },
+      {
+        "hex": "#163b57",
+        "coverage": 0.0882
+      },
+      {
+        "hex": "#b3bfc9",
+        "coverage": 0.0841
+      },
+      {
+        "hex": "#285e89",
+        "coverage": 0.0801
+      },
+      {
+        "hex": "#7d8a97",
+        "coverage": 0.0645
+      }
+    ]
+  },
+  "regions": [
+    {
+      "id": "topbar",
+      "x": 0,
+      "y": 0,
+      "w": 1,
+      "h": 0.1,
+      "kind": "chrome",
+      "score": {
+        "overall": 1,
+        "structure": 1,
+        "color": 1,
+        "colorIntersection": 1,
+        "paletteMatch": 1,
+        "detail": 1,
+        "detailRaw": 1,
+        "detailAdded": 0,
+        "bands": 1
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 1375,
+          "h": 77
+        },
+        "build": {
+          "x": 0,
+          "y": 0,
+          "w": 1375,
+          "h": 77
+        }
+      }
+    },
+    {
+      "id": "left-sidebar",
+      "x": 0,
+      "y": 0.1,
+      "w": 0.2,
+      "h": 0.9,
+      "kind": "chrome",
+      "score": {
+        "overall": 1,
+        "structure": 1,
+        "color": 1,
+        "colorIntersection": 1,
+        "paletteMatch": 1,
+        "detail": 1,
+        "detailRaw": 1,
+        "detailAdded": 0,
+        "bands": 1
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 275,
+          "h": 691
+        },
+        "build": {
+          "x": 0,
+          "y": 0,
+          "w": 275,
+          "h": 691
+        }
+      }
+    },
+    {
+      "id": "left-buttons",
+      "x": 0,
+      "y": 0.2,
+      "w": 0.2,
+      "h": 0.7,
+      "kind": "control",
+      "score": {
+        "overall": 1,
+        "structure": 1,
+        "color": 1,
+        "colorIntersection": 1,
+        "paletteMatch": 1,
+        "detail": 1,
+        "detailRaw": 1,
+        "detailAdded": 0,
+        "bands": 1
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 275,
+          "h": 537
+        },
+        "build": {
+          "x": 0,
+          "y": 0,
+          "w": 275,
+          "h": 537
+        }
+      }
+    },
+    {
+      "id": "main-canvas-bg",
+      "x": 0.3,
+      "y": 0.4,
+      "w": 0.1,
+      "h": 0.1,
+      "kind": "texture",
+      "score": {
+        "overall": 1,
+        "structure": 1,
+        "color": 1,
+        "colorIntersection": 1,
+        "paletteMatch": 1,
+        "detail": 1,
+        "detailRaw": 1,
+        "detailAdded": 0,
+        "bands": 1
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 5,
+          "y": 0,
+          "w": 127,
+          "h": 1
+        },
+        "build": {
+          "x": 5,
+          "y": 0,
+          "w": 127,
+          "h": 1
+        }
+      }
+    },
+    {
+      "id": "cert-border",
+      "x": 0.2,
+      "y": 0,
+      "w": 0.6,
+      "h": 1,
+      "kind": "plate",
+      "score": {
+        "overall": 1,
+        "structure": 1,
+        "color": 1,
+        "colorIntersection": 1,
+        "paletteMatch": 1,
+        "detail": 1,
+        "detailRaw": 1,
+        "detailAdded": 0,
+        "bands": 1
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 27,
+          "w": 826,
+          "h": 736
+        },
+        "build": {
+          "x": 0,
+          "y": 27,
+          "w": 826,
+          "h": 736
+        }
+      }
+    },
+    {
+      "id": "cert-title",
+      "x": 0.3001,
+      "y": 0.224,
+      "w": 0.3997,
+      "h": 0.1771,
+      "kind": "text",
+      "score": {
+        "overall": 1,
+        "structure": 1,
+        "color": 1,
+        "colorIntersection": 1,
+        "paletteMatch": 1,
+        "detail": 1,
+        "detailRaw": 1,
+        "detailAdded": 0,
+        "bands": 1
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 550,
+          "h": 136
+        },
+        "build": {
+          "x": 0,
+          "y": 0,
+          "w": 550,
+          "h": 136
+        }
+      }
+    },
+    {
+      "id": "cert-recipient",
+      "x": 0.3263,
+      "y": 0.431,
+      "w": 0.3488,
+      "h": 0.1693,
+      "kind": "text",
+      "score": {
+        "overall": 1,
+        "structure": 1,
+        "color": 1,
+        "colorIntersection": 1,
+        "paletteMatch": 1,
+        "detail": 1,
+        "detailRaw": 1,
+        "detailAdded": 0,
+        "bands": 1
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 5,
+          "y": 8,
+          "w": 468,
+          "h": 122
+        },
+        "build": {
+          "x": 5,
+          "y": 8,
+          "w": 468,
+          "h": 122
+        }
+      }
+    },
+    {
+      "id": "cert-seal",
+      "x": 0.4,
+      "y": 0.6,
+      "w": 0.2,
+      "h": 0.3,
+      "kind": "plate",
+      "score": {
+        "overall": 1,
+        "structure": 1,
+        "color": 1,
+        "colorIntersection": 1,
+        "paletteMatch": 1,
+        "detail": 1,
+        "detailRaw": 1,
+        "detailAdded": 0,
+        "bands": 1
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 276,
+          "h": 230
+        },
+        "build": {
+          "x": 0,
+          "y": 0,
+          "w": 276,
+          "h": 230
+        }
+      }
+    },
+    {
+      "id": "right-data-feed",
+      "x": 0.8,
+      "y": 0.1,
+      "w": 0.2,
+      "h": 0.9,
+      "kind": "chrome",
+      "score": {
+        "overall": 1,
+        "structure": 1,
+        "color": 1,
+        "colorIntersection": 1,
+        "paletteMatch": 1,
+        "detail": 1,
+        "detailRaw": 1,
+        "detailAdded": 0,
+        "bands": 1
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 275,
+          "h": 691
+        },
+        "build": {
+          "x": 0,
+          "y": 0,
+          "w": 275,
+          "h": 691
+        }
+      }
+    },
+    {
+      "id": "data-feed-rows",
+      "x": 0.8,
+      "y": 0.2,
+      "w": 0.2,
+      "h": 0.7,
+      "kind": "text",
+      "score": {
+        "overall": 1,
+        "structure": 1,
+        "color": 1,
+        "colorIntersection": 1,
+        "paletteMatch": 1,
+        "detail": 1,
+        "detailRaw": 1,
+        "detailAdded": 0,
+        "bands": 1
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 275,
+          "h": 537
+        },
+        "build": {
+          "x": 0,
+          "y": 0,
+          "w": 275,
+          "h": 537
+        }
+      }
+    }
+  ],
+  "files": {
+    "sideBySide": "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/side-by-side.png",
+    "heatmap": "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/heatmap.png",
+    "regionFiles": [
+      "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/regions/topbar.png",
+      "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/regions/left-sidebar.png",
+      "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/regions/left-buttons.png",
+      "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/regions/main-canvas-bg.png",
+      "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/regions/cert-border.png",
+      "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/regions/cert-title.png",
+      "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/regions/cert-recipient.png",
+      "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/regions/cert-seal.png",
+      "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/regions/right-data-feed.png",
+      "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/regions/data-feed-rows.png"
+    ]
+  }
+}

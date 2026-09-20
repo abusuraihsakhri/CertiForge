@@ -125,3 +125,8 @@
   .editor-layout{grid-template-columns:200px minmax(460px,1fr) 240px}
   .mapping-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+.cert-canvas::after { content: ''; position: absolute; inset: 0; background-image: url('../assets/plates/cert-border.png'); background-size: 100% 100%; pointer-events: none; z-index: 5; opacity: 0.9; }
+.cert-seal-layer { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 140px; height: 140px; background-image: url('../assets/plates/cert-seal.png'); background-size: contain; background-repeat: no-repeat; z-index: 6; pointer-events: none; opacity: 0.9; }
+
+.cert-canvas::before { content: ''; position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); width: 140px; height: 140px; background-image: url('../assets/plates/cert-seal.png'); background-size: contain; background-repeat: no-repeat; z-index: 6; pointer-events: none; opacity: 0.95; }

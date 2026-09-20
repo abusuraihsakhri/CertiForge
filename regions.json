@@ -1,0 +1,14 @@
+{
+  "regions": [
+    { "id": "topbar", "kind": "chrome", "grid": "A0:J0", "note": "navy blue top header bar" },
+    { "id": "left-sidebar", "kind": "chrome", "grid": "A1:B9", "note": "left sidebar panel for tools" },
+    { "id": "left-buttons", "kind": "control", "grid": "A2:B8", "note": "tool buttons in left sidebar" },
+    { "id": "main-canvas-bg", "kind": "texture", "grid": "D4:D4", "note": "crisp linen white cardstock texture" },
+    { "id": "cert-border", "kind": "plate", "grid": "C0:H9", "note": "intricate intaglio blue guilloche border" },
+    { "id": "cert-title", "kind": "text", "grid": "D2:G3", "note": "THE MINT CERTIFICATE OF AUTHENTICITY headline" },
+    { "id": "cert-recipient", "kind": "text", "grid": "D4:G5", "note": "JOHN A. SMITH recipient name" },
+    { "id": "cert-seal", "kind": "plate", "grid": "E6:F8", "note": "metallic silver and blue embossed seal" },
+    { "id": "right-data-feed", "kind": "chrome", "grid": "I1:J9", "note": "right sidebar panel for data feed" },
+    { "id": "data-feed-rows", "kind": "text", "grid": "I2:J8", "note": "participant data rows" }
+  ]
+}

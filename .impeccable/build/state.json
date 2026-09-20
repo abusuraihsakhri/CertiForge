@@ -1,0 +1,254 @@
+{
+  "tool": "build-phase",
+  "version": 2,
+  "startedAt": "2026-09-20T19:00:22.425Z",
+  "comp": ".impeccable/mocks/mint_comp_one_1789930848761.jpg",
+  "direction": "a98d9ee3",
+  "breakpoint": "1376x768",
+  "artifact": null,
+  "phase": "review",
+  "phases": {
+    "comps": {
+      "status": "closed",
+      "openedAt": "2026-09-20T19:00:22.425Z",
+      "closedAt": "2026-09-20T19:04:45.654Z",
+      "attempts": 2,
+      "notes": [],
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "3 comps, 1 approved",
+        "approved": ".impeccable/mocks/mint_comp_one_1789930848761.jpg",
+        "at": "2026-09-20T19:04:45.654Z"
+      },
+      "forced": null
+    },
+    "spec": {
+      "status": "closed",
+      "openedAt": "2026-09-20T19:04:45.771Z",
+      "closedAt": "2026-09-20T19:05:53.348Z",
+      "attempts": 1,
+      "notes": [],
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "10 regions, 3 plates, 3 text regions measured",
+        "at": "2026-09-20T19:05:53.348Z"
+      },
+      "forced": null
+    },
+    "plates": {
+      "status": "closed",
+      "openedAt": "2026-09-20T19:05:53.348Z",
+      "closedAt": "2026-09-20T19:09:33.983Z",
+      "attempts": 4,
+      "notes": [],
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "3/3 plates",
+        "at": "2026-09-20T19:09:33.983Z"
+      },
+      "forced": null
+    },
+    "hero": {
+      "status": "closed",
+      "openedAt": "2026-09-20T19:09:33.983Z",
+      "closedAt": "2026-09-20T19:15:52.812Z",
+      "attempts": 1,
+      "notes": [],
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "hero 100% (match)",
+        "score": 1,
+        "verdict": "match",
+        "report": ".impeccable/review/diff/hero/report.json",
+        "sideBySide": "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/hero/side-by-side.png",
+        "worst": [
+          "topbar match 100%",
+          "left-sidebar match 100%",
+          "left-buttons match 100%"
+        ],
+        "worstIds": [
+          "topbar",
+          "left-sidebar",
+          "left-buttons"
+        ],
+        "worstCrops": [
+          {
+            "id": "topbar",
+            "verdict": "match",
+            "score": {
+              "overall": 1,
+              "structure": 1,
+              "color": 1,
+              "colorIntersection": 1,
+              "paletteMatch": 1,
+              "detail": 1,
+              "detailRaw": 1,
+              "detailAdded": 0,
+              "bands": 1
+            },
+            "file": ".impeccable/review/diff/hero/regions/topbar.png"
+          },
+          {
+            "id": "left-sidebar",
+            "verdict": "match",
+            "score": {
+              "overall": 1,
+              "structure": 1,
+              "color": 1,
+              "colorIntersection": 1,
+              "paletteMatch": 1,
+              "detail": 1,
+              "detailRaw": 1,
+              "detailAdded": 0,
+              "bands": 1
+            },
+            "file": ".impeccable/review/diff/hero/regions/left-sidebar.png"
+          },
+          {
+            "id": "left-buttons",
+            "verdict": "match",
+            "score": {
+              "overall": 1,
+              "structure": 1,
+              "color": 1,
+              "colorIntersection": 1,
+              "paletteMatch": 1,
+              "detail": 1,
+              "detailRaw": 1,
+              "detailAdded": 0,
+              "bands": 1
+            },
+            "file": ".impeccable/review/diff/hero/regions/left-buttons.png"
+          }
+        ],
+        "regionVerdicts": {
+          "topbar": "match",
+          "left-sidebar": "match",
+          "left-buttons": "match",
+          "main-canvas-bg": "match",
+          "cert-border": "match",
+          "cert-title": "match",
+          "cert-recipient": "match",
+          "cert-seal": "match",
+          "right-data-feed": "match",
+          "data-feed-rows": "match"
+        },
+        "at": "2026-09-20T19:15:52.812Z"
+      },
+      "forced": null,
+      "records": 11,
+      "readingsSeen": {
+        "text data-feed-rows: ink is #8e9caa in the build, #edf2f3 in the comp; use the comp's colour": 1,
+        "chrome topbar: its rule sits 26px into the box in the comp and 49px in the build (+23px), so the strip is taller than the comp's; match the height, not only the position": 1,
+        "text cert-recipient: letter-spacing is wider than the comp's (gap 0.147 vs 0.064 of the cap height); set letter-spacing to close it by about 1px": 1,
+        "text cert-recipient: 1 line in the build, 2 in the comp; the measure (max-width, font-size, letter-spacing) wraps it differently, so the block is a different shape": 1,
+        "text cert-title: ink is #182848 in the build, #999d9f in the comp; use the comp's colour": 1,
+        "text cert-recipient: it starts 176px further right than in the comp": 1,
+        "chrome topbar: its rule sits 26px into the box in the comp and 65px in the build (+39px), so the strip is taller than the comp's; match the height, not only the position": 1
+      },
+      "history": [
+        {
+          "at": "2026-09-20T19:15:52.812Z",
+          "score": 1,
+          "worstIds": [
+            "topbar",
+            "left-sidebar",
+            "left-buttons"
+          ],
+          "regionVerdicts": {
+            "topbar": "match",
+            "left-sidebar": "match",
+            "left-buttons": "match",
+            "main-canvas-bg": "match",
+            "cert-border": "match",
+            "cert-title": "match",
+            "cert-recipient": "match",
+            "cert-seal": "match",
+            "right-data-feed": "match",
+            "data-feed-rows": "match"
+          },
+          "artifactHash": "704880caeaf7"
+        }
+      ]
+    },
+    "sections": {
+      "status": "closed",
+      "openedAt": "2026-09-20T19:15:52.812Z",
+      "closedAt": "2026-09-20T19:15:58.397Z",
+      "attempts": 1,
+      "notes": [],
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "no mechanical gate",
+        "at": "2026-09-20T19:15:58.397Z"
+      },
+      "forced": null
+    },
+    "motion": {
+      "status": "closed",
+      "openedAt": "2026-09-20T19:15:58.397Z",
+      "closedAt": "2026-09-20T19:16:04.196Z",
+      "attempts": 1,
+      "notes": [],
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "no mechanical gate",
+        "at": "2026-09-20T19:16:04.196Z"
+      },
+      "forced": null
+    },
+    "responsive": {
+      "status": "closed",
+      "openedAt": "2026-09-20T19:16:04.196Z",
+      "closedAt": "2026-09-20T19:16:12.741Z",
+      "attempts": 1,
+      "notes": [],
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "desktop 100% (match)",
+        "score": 1,
+        "sideBySide": "C:/Users/abusu/Desktop/CertiForge-v0.2/.impeccable/review/diff/desktop/side-by-side.png",
+        "at": "2026-09-20T19:16:12.741Z"
+      },
+      "forced": null
+    },
+    "review": {
+      "status": "closed",
+      "openedAt": "2026-09-20T19:16:12.741Z",
+      "closedAt": "2026-09-20T19:16:25.018Z",
+      "attempts": 0,
+      "notes": [],
+      "gate": null,
+      "forced": null
+    }
+  },
+  "finish": {
+    "disposition": "ship",
+    "at": "2026-09-20T19:16:25.018Z",
+    "phaseAtFinish": "review"
+  },
+  "plates": {
+    "main-canvas-bg": {
+      "status": "ok",
+      "score": 0.7737,
+      "size": "300x167"
+    },
+    "cert-border": {
+      "status": "ok",
+      "score": 0.7656,
+      "size": "1300x1209"
+    },
+    "cert-seal": {
+      "status": "ok",
+      "score": 0.734,
+      "size": "500x418"
+    }
+  }
+}
