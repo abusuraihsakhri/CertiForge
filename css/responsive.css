@@ -38,9 +38,9 @@
   .template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .editor-layout{display:flex;flex-direction:column;gap:10px}
   .editor-layout>.canvas-stage{order:1;width:100%;min-height:300px;height:auto;padding:12px}
-  .editor-layout>.properties{order:2;width:100%;max-height:none}
-  .editor-layout>.elements{order:3;width:100%;max-height:none}
-  .element-list{max-height:220px}
+  .editor-layout>.elements{order:2;width:100%;max-height:none}
+  .editor-layout>.properties{order:3;width:100%;max-height:none}
+  .element-list{max-height:190px}
   .mapping-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .generate-grid{grid-template-columns:1fr}
   .preview-stage{min-height:0;padding:12px}
