@@ -56,7 +56,11 @@ function renderTemplates(app) {
     <div class="grid template-grid">${filtered.map(t => `<article class="card template-card ${state.templateId === t.id ? 'active-template' : ''}" data-template="${escapeHTML(t.id)}"><div class="template-thumb">${templateSVG(t.id)}</div><div class="template-info"><strong>${escapeHTML(t.name)}</strong><p>${escapeHTML(t.description)}</p><span class="tag">${escapeHTML(t.category)}</span></div></article>`).join("")}</div></div>`;
     
     app.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => { _templateFilter = b.dataset.cat; draw(); });
-    app.querySelectorAll("[data-template]").forEach(c => c.onclick = () => { loadTemplate(c.dataset.template); go("editor"); });
+    app.querySelectorAll("[data-template]").forEach(c => c.onclick = () => {
+      loadTemplate(c.dataset.template);
+      state.dirtySinceSave = true;
+      go("editor");
+    });
   };
 
   draw();
@@ -75,7 +79,12 @@ function renderEditor(app) {
     <div class="mini-help" style="margin:14px 4px">Tip: use variables such as <b>{{NAME}}</b>, <b>{{ROLE}}</b>, <b>{{EVENT}}</b>, and spreadsheet tokens such as <b>{{REGISTRATION_ID}}</b>.</div>
   </div>
   <div class="canvas-stage"><div id="editorCanvas"></div></div><div class="editor-panel properties"><h3>Properties</h3><div id="properties"></div></div></div></div>`;
-  const project = document.getElementById("projectNameInput"); project.value = state.projectName; project.onchange = () => { state.projectName = project.value.trim() || "Untitled Conference"; };
+  const project = document.getElementById("projectNameInput");
+  project.value = state.projectName;
+  project.onchange = () => {
+    state.projectName = project.value.trim() || "Untitled Conference";
+    state.dirtySinceSave = true;
+  };
   document.getElementById("switchTemplate").onclick = () => go("templates");
   document.getElementById("toData").onclick = () => go("data");
   document.getElementById("addTextBtn").onclick = addTextElement;
@@ -122,9 +131,16 @@ function renderMapping(app) {
   app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">04 / MAPPING</div><h1>Map your spreadsheet.</h1><p class="lead">Participant-specific columns can override the conference-wide details below.</p></div><button class="btn primary" id="toPreview">Continue</button></div>
   <div class="card panel"><h2>Conference-wide details</h2><div class="form-grid"><div class="field"><label>Event</label><input data-global="EVENT" value="${escapeHTML(gf.EVENT || "")}"></div><div class="field"><label>Date</label><input data-global="DATE" value="${escapeHTML(gf.DATE || "")}"></div><div class="field"><label>Venue</label><input data-global="VENUE" value="${escapeHTML(gf.VENUE || "")}"></div><div class="field"><label>Organization</label><input data-global="ORGANIZATION" value="${escapeHTML(gf.ORGANIZATION || "")}"></div></div></div>
   <div style="height:16px"></div><div class="card panel"><h2>Column mapping</h2><div class="mapping-grid">${variableKeys.filter(v => !["CERTIFICATE_ID", "YEAR"].includes(v)).map(v => `<div class="map-card ${v === "NAME" ? "required-map" : ""}"><strong>{{${v}}}${v === "NAME" ? ' <span class="required">required</span>' : ""}</strong><div class="arrow">↓</div><select data-map="${v}"><option value="">${["EVENT", "DATE", "VENUE", "ORGANIZATION"].includes(v) ? "Use conference-wide value" : "Not mapped"}</option>${options}</select></div>`).join("")}</div><div class="notice" style="margin-top:14px"><b>Direct spreadsheet variables:</b> every column is also available as a token. ${customTokens}</div></div></div>`;
-  app.querySelectorAll("[data-map]").forEach(s => { s.value = state.mappings[s.dataset.map] || ""; s.onchange = () => { state.mappings[s.dataset.map] = s.value; }; });
+  app.querySelectorAll("[data-map]").forEach(s => {
+    s.value = state.mappings[s.dataset.map] || "";
+    s.onchange = () => {
+      state.mappings[s.dataset.map] = s.value;
+      state.dirtySinceSave = true;
+    };
+  });
   app.querySelectorAll("[data-global]").forEach(i => i.oninput = () => {
     state.globalFields[i.dataset.global] = i.value;
+    state.dirtySinceSave = true;
     if (i.dataset.global === "EVENT" && i.value) {
       if (!state.certificate._customPrefix || state.certificate.prefix === "CONF") {
         state.certificate.prefix = extractConferencePrefix(i.value);
@@ -138,12 +154,18 @@ function renderMapping(app) {
 function renderPreview(app) {
   if (!state.rows.length) { go("data"); return; }
   if (!state.mappings.NAME) { go("mapping"); return; }
-  const row = mappedRows()[state.sampleIndex] || {};
+
+  const rows = mappedRows().filter(r => String(r.NAME || "").trim());
+  if (!rows.length) { toast("No valid participant names are available for preview."); go("mapping"); return; }
+  state.sampleIndex = Math.max(0, Math.min(rows.length - 1, state.sampleIndex));
+  const row = rows[state.sampleIndex];
+
   app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">05 / PREVIEW</div><h1>Check the result.</h1><p class="lead">Preview actual records before committing to the batch.</p></div><div class="toolbar"><button class="btn" id="prev">Previous</button><button class="btn" id="next">Next</button><button class="btn primary" id="toGenerate">Generate</button></div></div>
-  <div class="card panel"><div class="preview-stage"><div id="previewSheet" class="preview-sheet"></div></div><div style="margin-top:15px;font-size:12px;color:var(--muted)">Participant ${state.sampleIndex + 1} of ${state.rows.length}</div></div></div>`;
+  <div class="card panel"><div class="preview-stage"><div id="previewSheet" class="preview-sheet"></div></div><div style="margin-top:15px;font-size:12px;color:var(--muted)">Participant ${state.sampleIndex + 1} of ${rows.length}</div></div></div>`;
+
   document.getElementById("previewSheet").innerHTML = renderCertificateSVG(row, state.sampleIndex);
   document.getElementById("prev").onclick = () => { state.sampleIndex = Math.max(0, state.sampleIndex - 1); renderStep(); };
-  document.getElementById("next").onclick = () => { state.sampleIndex = Math.min(state.rows.length - 1, state.sampleIndex + 1); renderStep(); };
+  document.getElementById("next").onclick = () => { state.sampleIndex = Math.min(rows.length - 1, state.sampleIndex + 1); renderStep(); };
   document.getElementById("toGenerate").onclick = () => go("generate");
 }
 
@@ -186,6 +208,7 @@ function renderGenerate(app) {
     state.certificate.digits = Math.min(8, Math.max(1, +refs.digits.value || 4));
     state.settings.filename = refs.filename.value || "{{CERTIFICATE_ID}}_{{NAME}}.pdf";
     state.settings.rasterScale = +refs.rasterScale.value || 2;
+    state.dirtySinceSave = true;
     updatePreview();
   };
 
