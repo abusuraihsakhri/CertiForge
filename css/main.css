@@ -248,3 +248,10 @@ p.lead{margin:5px 0 0;max-width:720px;color:var(--muted);font-size:12.5px;line-h
   opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s;font-size:11.5px
 }
 .toast.show{opacity:1;transform:none}
+
+.filter-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.filter-bar .btn{min-height:30px;padding:6px 10px;border-radius:999px;font-size:10.5px}
+.section-gap{height:12px}
+.page-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.result-card{border-color:#c8e6d1;background:linear-gradient(180deg,#fff,#f8fdf9)}
+.result-card h2{color:#166534}
