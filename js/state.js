@@ -16,7 +16,7 @@ export const state = {
     INSTITUTION: "Maulana Azad Medical College"
   },
   certificate: { prefix: "DSH", year: String(new Date().getFullYear()), start: 1, digits: 4, separator: "-" },
-  settings: { filename: "{{CERTIFICATE_ID}}_{{NAME}}.pdf", rasterScale: 2, verifySecret: "CertiForge-Secure-Salt" },
+  settings: { filename: "{{CERTIFICATE_ID}}_{{NAME}}.pdf", rasterScale: 2 },
   generated: [],
   registry: [],
   history: { stack: [], index: -1 },
@@ -43,7 +43,7 @@ export const defaultState = () => ({
     INSTITUTION: "Maulana Azad Medical College"
   },
   certificate: { prefix: "CONF", year: String(new Date().getFullYear()), start: 1, digits: 4, separator: "-" },
-  settings: { filename: "{{CERTIFICATE_ID}}_{{NAME}}.pdf", rasterScale: 2, verifySecret: "CertiForge-Secure-Salt" },
+  settings: { filename: "{{CERTIFICATE_ID}}_{{NAME}}.pdf", rasterScale: 2 },
   generated: [],
   registry: [],
   history: { stack: [], index: -1 },
