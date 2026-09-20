@@ -151,14 +151,14 @@ function assert(x, msg) { if (!x) throw new Error(msg); }
   state.templateId = 'indian-medical-conf';
   state.elements = structuredClone(medConf.elements);
   const indianSvg = renderCertificateSVG({
-    NAME: 'Dr Abu Suraih Sakhri. E.P',
+    NAME: 'Sample Recipient',
     ROLE: 'Delegate',
     ORGANIZATION: 'Delhi Society of Haematology',
     EVENT: '32nd Annual Conference',
     VENUE: 'Maulana Azad Medical College, New Delhi',
     DATE: '8th October 2026'
   }, 0);
-  assert(indianSvg.includes('Dr Abu Suraih Sakhri. E.P'), 'Indian recipient name missing in SVG');
+  assert(indianSvg.includes('Sample Recipient'), 'Indian recipient name missing in SVG');
   assert(indianSvg.includes('Delhi Society of Haematology'), 'Indian organization missing in SVG');
   assert(indianSvg.includes('data-el="logo-soc"') && indianSvg.includes('data-el="logo-col"'), 'Indian dual crests missing in SVG');
   assert(indianSvg.includes('data-el="sig1-img"') && indianSvg.includes('data-el="sig4-img"'), 'Indian 4-column signatures missing in SVG');
