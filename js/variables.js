@@ -94,22 +94,27 @@ export function getVerificationBaseUrl() {
   return 'https://abusuraihsakhri.github.io/CertiForge/verify.html';
 }
 
-export function computeVerificationSignature(data, secret = 'CertiForge-Secure-Salt') {
-  const canonical = [
+export function computeVerificationSignature(data, salt = 'CertiForge-Secure-Salt', version = 2) {
+  const fields = [
     String(data.CERTIFICATE_ID || data.id || '').trim(),
     String(data.NAME || data.name || '').trim(),
-    String(data.EVENT || data.event || '').trim(),
+    String(data.EVENT || data.event || '').trim()
+  ];
+  if (Number(version) >= 2) fields.push(String(data.ROLE || data.role || '').trim());
+  fields.push(
     String(data.DATE || data.date || '').trim(),
     String(data.ORGANIZATION || data.organization || data.org || '').trim()
-  ].join('|');
-  return sha256(`${canonical}|${secret}`).slice(0, 16);
+  );
+  return sha256(`${fields.join('|')}|${salt}`).slice(0, 16);
 }
 
-export function getVerificationUrl(data, secret = 'CertiForge-Secure-Salt') {
+export function getVerificationUrl(data, salt = 'CertiForge-Secure-Salt') {
   const baseUrl = getVerificationBaseUrl();
   const certId = String(data.CERTIFICATE_ID || data.id || '');
-  const sig = computeVerificationSignature(data, secret);
+  const version = 2;
+  const sig = computeVerificationSignature(data, salt, version);
   const p = new URLSearchParams();
+  p.set('v', String(version));
   if (certId) p.set('id', certId);
   if (data.NAME || data.name) p.set('name', String(data.NAME || data.name));
   if (data.ROLE || data.role) p.set('role', String(data.ROLE || data.role));
@@ -156,12 +161,14 @@ export function sampleRecord() {
 
 export function resolveText(text, row, index = 0) {
   let out = String(text ?? "");
-  const data = Object.assign({}, sampleRecord(), state.globalFields || {}, row || {});
+  // Production resolution must never inherit demo/sample participant values.
+  // Callers that need preview data should pass sampleRecord() explicitly.
+  const data = Object.assign({}, state.globalFields || {}, row || {});
   const certId = formatId(Number(state.certificate.start) + index);
   data.CERTIFICATE_ID = certId;
   data.YEAR = state.certificate.year;
-  data.VERIFY_SIG = computeVerificationSignature(data, state.settings?.verifySecret);
-  data.VERIFY_URL = getVerificationUrl(data, state.settings?.verifySecret);
+  data.VERIFY_SIG = computeVerificationSignature(data);
+  data.VERIFY_URL = getVerificationUrl(data);
 
   Object.keys(data).forEach(k => {
     out = out.replaceAll(`{{${k}}}`, data[k] == null ? "" : String(data[k]));
