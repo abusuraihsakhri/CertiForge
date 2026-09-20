@@ -18,3 +18,38 @@ button,input,select,textarea{font:inherit;box-sizing:border-box}button{cursor:po
 .progress{height:9px;background:#e9ebef;border-radius:99px;overflow:hidden}.progress>div{height:100%;width:0;background:#5b5ce2;transition:.2s}.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.metric{padding:16px;background:#fff;border:1px solid var(--line);border-radius:12px}.metric strong{display:block;font-size:23px}.metric span{font-size:10px;color:var(--muted)}
 .btn.danger{color:#b42318;border-color:#f0c8c4;background:#fff7f6}.btn.danger:hover{background:#fff0ee}
 .toolbar.compact .btn{padding:7px 9px;font-size:11px}.generate-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.required{font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:#b42318;margin-left:5px}.required-map{border-color:#e7b6b1}.notice code{display:inline-block;margin:3px 2px;padding:2px 5px;background:#eceef2;border-radius:5px;font-size:10px}.btn:disabled{opacity:.45;cursor:not-allowed}
+
+
+/* Compact desktop layout */
+@media (min-width: 861px) {
+  .topbar{height:58px;padding:0 18px}
+  .brand{gap:9px}.brand-mark{width:32px;height:32px;border-radius:9px}
+  .top-actions{gap:6px}.top-actions .btn{padding:7px 11px;font-size:12px}
+  .workspace{min-height:calc(100vh - 58px);grid-template-columns:190px minmax(0,1fr)}
+  .sidebar{padding:14px 10px}
+  .nav-item{padding:8px 10px;margin:1px 0}
+  .privacy-card{padding:9px}
+  .main-panel{padding:14px 16px}
+  .page-head{margin-bottom:12px;align-items:center}
+  h1{font-size:25px;margin:2px 0 2px}
+  h2{font-size:16px;margin-bottom:6px}
+  p.lead{font-size:12px;line-height:1.35}
+  .eyebrow{font-size:10px}
+  .grid{gap:11px}
+  .template-grid{grid-template-columns:repeat(auto-fill,minmax(185px,1fr))}
+  .template-thumb{padding:10px}
+  .template-info{padding:9px 10px}
+  .template-info p{margin:3px 0 6px;line-height:1.25}
+  .panel{padding:14px}
+  .dropzone{padding:28px 16px}
+  .dropzone strong{font-size:14px}.dropzone p{margin:5px 0 9px}
+  .form-grid{gap:10px}
+  .field{gap:4px}
+  .field input,.field select,.field textarea{padding:7px 9px;font-size:12px}
+  .metric-grid{gap:9px}
+  .metric{padding:11px 12px}.metric strong{font-size:20px}
+  .data-table th,.data-table td{padding:7px 9px}
+  .generate-grid{gap:12px}
+  .notice{padding:10px 12px}
+  .empty{padding:28px}
+}
