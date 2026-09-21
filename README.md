@@ -1,10 +1,10 @@
 <div align="center">
 
-# 🎓 CertiForge
+# CertiForge
 
-### Privacy-first bulk certificate design, generation, and verification
+### [Open the Live Application →](https://abusuraihsakhri.github.io/CertiForge/)
 
-**Design once · Import participant data · Generate at scale · Verify credentials**
+Browser-based certificate design, spreadsheet-driven bulk generation, PDF export, and registry-backed verification.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES6%2B-F7DF1E?logo=javascript&logoColor=000)](https://developer.mozilla.org/docs/Web/JavaScript)
@@ -292,10 +292,8 @@ See [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-### 🎓 CertiForge
+### CertiForge
 
-**Design once. Generate at scale. Verify with confidence.**
-
-Privacy-first certificate infrastructure for events, education, and institutions.
+Browser-based certificate generation and verification for events, education, and institutions.
 
 </div>
