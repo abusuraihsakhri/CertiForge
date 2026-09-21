@@ -1,18 +1,27 @@
 /**
  * CertiForge verification portal logic.
  *
- * Trust model (v0.5):
+ * Trust model (v0.6):
  *  - The signing secret NEVER exists on this page and is never accepted from a URL.
- *  - A credential is only confirmed green when it matches the organizer-published
- *    verification-registry.json (same folder) or a registry file the operator
+ *  - Current verify links carry only the certificate ID and its keyed digest —
+ *    no recipient data travels in the URL. The credential is confirmed green
+ *    when that id+digest pair exactly matches the organizer-published
+ *    verification-registry.json (schema 2, which itself stores only IDs and
+ *    keyed digests — no participant names) or a registry file the operator
  *    deliberately loads for offline checking.
+ *  - Legacy links carrying full fields and legacy registries holding plaintext
+ *    fields remain supported: presented fields are compared, and the digest
+ *    still has the final say.
+ *  - A manually typed ID without a digest only proves a record exists; the
+ *    portal says so instead of claiming verification.
  *  - Without a registry the portal shows the record plus its digest but states
  *    honestly that the signature cannot be confirmed.
  */
 import { escapeHTML } from './utils.js';
+import { hasWebCrypto, importPublicKeyJWK, verifySignature } from './crypto.js';
 
 const esc = escapeHTML;
-const SIG_PATTERN = /^[a-f0-9]{8,16}$/i;
+const SIG_PATTERN = /^[a-zA-Z0-9_\-]{8,200}$/;
 
 export function parseRecord(search) {
   const p = new URLSearchParams(search);
@@ -30,6 +39,7 @@ export function parseRecord(search) {
     date: get('date', 'd'),
     organization: get('org', 'organization', 'o'),
     sig: get('sig', 's'),
+    h: get('h'),
     legacySecretPresent
   };
 }
@@ -38,9 +48,13 @@ function norm(v) { return String(v ?? "").trim(); }
 
 export function normalizeRegistry(raw) {
   if (!raw || typeof raw !== "object" || !Array.isArray(raw.certificates)) return null;
+  const schema = raw.schema === 3 ? 3 : raw.schema === 2 ? 2 : 1;
   return {
+    schema,
+    publicKey: schema === 3 && raw.publicKey && raw.publicKey.kty ? raw.publicKey : undefined,
     event: norm(raw.event || raw.project || ""),
     organization: norm(raw.organization || ""),
+    generatedAt: norm(raw.generatedAt || ""),
     certificates: raw.certificates
       .filter(c => c && typeof c === "object" && norm(c.id))
       .slice(0, 250000)
@@ -59,6 +73,10 @@ export function normalizeRegistry(raw) {
 
 /**
  * Compare a scanned/supplied record against the active registry.
+ * Only fields the record actually presents are compared (current links carry
+ * none — the keyed digest alone binds every field), and only when the registry
+ * entry holds them (schema-2 registries store no plaintext fields). The digest
+ * comparison always has the final say.
  * Returns { status: 'verified' | 'mismatch' | 'not-found' | 'no-registry' | 'invalid', ... }
  */
 export function evaluateRecord(record, registry) {
@@ -72,6 +90,7 @@ export function evaluateRecord(record, registry) {
 
   const fields = [["Recipient", "name"], ["Role", "role"], ["Event", "event"], ["Issue date", "date"], ["Issuing authority", "organization"]];
   const diffs = fields
+    .filter(([, key]) => norm(record[key]) !== "" && norm(match[key]) !== "")
     .filter(([, key]) => norm(record[key]).toLowerCase() !== norm(match[key]).toLowerCase())
     .map(([label]) => label);
   if (diffs.length) return { status: 'mismatch', match, diffs };
@@ -121,9 +140,10 @@ export function renderVerified(card, record, match) {
     <div class="verify-body">
       <div class="detail-grid">${detailRows(Object.entries(shown))}</div>
       <div class="security-notice">
-        <strong>How this was verified:</strong> the certificate ID, recipient details and the QR digest were
-        matched field-by-field against the organizer's published verification registry. The signing secret was
-        not exposed to this page or the link.
+        <strong>How this was verified:</strong> the certificate ID and the QR code's keyed digest exactly match
+        an entry in the organizer's published verification registry. Any details shown come from that registry,
+        not from the link you scanned. The signing secret was never exposed to this page or the link, and
+        current registries store no participant names — only IDs and digests.
       </div>
       ${actionsHtml()}
     </div>`;
@@ -149,6 +169,80 @@ export function renderMismatch(card, record, match, diffs) {
         ["Registry Event", match.event]
       ])}</div>
       <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Try Another Certificate</a></div>
+    </div>`;
+}
+
+export function renderEcdsaVerified(card, record, match, registry) {
+  const shown = {
+    "Certificate ID": record.id,
+    "Recipient": record.name || match?.name || "",
+    "Event / Conference": record.event || registry?.event || "",
+    "Issuing Authority": record.organization || registry?.organization || "",
+    "Issue Date": record.date || match?.date || "",
+    "Payload hash": record.h || ""
+  };
+  card.innerHTML = `
+    <div class="verify-head">
+      <div class="status-badge verified">
+        <div class="status-icon" aria-hidden="true">✓</div>
+        <span>ECDSA P-256 Signature Verified</span>
+      </div>
+      <h1 class="verify-title">Credential Cryptographically Verified</h1>
+      <p class="verify-sub">The issuer's ECDSA P-256 signature over this certificate's payload hash is valid. No secret was exposed to this page.</p>
+    </div>
+    <div class="verify-body">
+      <div class="detail-grid">${detailRows(Object.entries(shown))}</div>
+      <div class="security-notice">
+        <strong>How this was verified:</strong> the QR code carries a SHA-256 hash of the certificate's
+        canonical fields and an ECDSA P-256 signature over that hash. The portal verified the signature
+        against the organizer's public key published in the verification registry. This proves the issuer's
+        private key signed exactly these fields — unforgeable without that key, and the hash cannot be
+        reversed into recipient data. The signing secret was never exposed to this page or the link.
+      </div>
+      ${actionsHtml()}
+    </div>`;
+  bindActions();
+}
+
+export function renderEcdsaMismatch(card, record, registry) {
+  card.innerHTML = `
+    <div class="verify-head">
+      <div class="status-badge failed">
+        <div class="status-icon" aria-hidden="true">✕</div>
+        <span>Signature Verification Failed</span>
+      </div>
+      <h1 class="verify-title">Invalid ECDSA Signature</h1>
+      <p class="verify-sub">The QR code's ECDSA P-256 signature does not verify against the organizer's public key. The certificate may be altered or forged.</p>
+    </div>
+    <div class="verify-body">
+      <div class="detail-grid">${detailRows([
+        ["Supplied ID", record.id],
+        ["Payload hash", record.h || ""]
+      ])}</div>
+      <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Try Another Certificate</a></div>
+    </div>`;
+}
+
+export function renderExists(card, match, registry) {
+  card.innerHTML = `
+    <div class="verify-head">
+      <div class="status-badge search">
+        <div class="status-icon" aria-hidden="true">i</div>
+        <span>Record Located</span>
+      </div>
+      <h1 class="verify-title">This Certificate ID Exists in the Registry</h1>
+      <p class="verify-sub">A typed ID alone does not prove authenticity — anyone can read IDs from the public registry. Scan the QR code printed on the certificate to confirm it cryptographically.</p>
+    </div>
+    <div class="verify-body">
+      <div class="detail-grid">${detailRows([
+        ["Certificate ID", match.id],
+        ["Recipient", match.name],
+        ["Role", match.role],
+        ["Event / Conference", match.event || registry.event],
+        ["Issue Date", match.date],
+        ["Issuing Authority", match.organization || registry.organization]
+      ])}</div>
+      <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Verify Another</a></div>
     </div>`;
 }
 
@@ -219,7 +313,7 @@ export function renderPortalSearch(card, registry, onRegistryLoaded) {
         </div>
       </div>
 
-      <div id="registryStatus" class="mini-help" style="margin-bottom:16px;font-size:12px;color:var(--muted)">${registry ? `Loaded registry: <strong>${registry.certificates.length} certificates</strong>${registry.event ? ` for <em>${esc(registry.event)}</em>` : ''}.` : 'No registry loaded yet.'}</div>
+      <div id="registryStatus" class="mini-help" style="margin-bottom:16px;font-size:12px;color:var(--muted)">${registry ? `Loaded registry: <strong>${registry.certificates.length} certificates</strong>${registry.event ? ` for <em>${esc(registry.event)}</em>` : ''}${registry.schema === 2 ? ' — privacy-safe digest registry (stores no participant names)' : ''}.` : 'No registry loaded yet.'}</div>
 
       <div class="card panel dropzone-soft">
         <strong style="font-size:13px;display:block">Upload Registry JSON</strong>
@@ -246,7 +340,7 @@ export function renderPortalSearch(card, registry, onRegistryLoaded) {
     }
     const match = registry.certificates.find(c => norm(c.id).toUpperCase() === q.toUpperCase());
     if (match) {
-      renderVerified(card, { id: match.id, name: match.name, role: match.role, event: match.event || registry.event, date: match.date, organization: match.organization || registry.organization, sig: match.sig }, match);
+      renderExists(card, match, registry);
     } else {
       resEl.innerHTML = `<div class="notice notice-danger">No record found for Certificate ID “<strong>${esc(q)}</strong>” in the active registry.</div>`;
     }
@@ -296,8 +390,35 @@ async function init() {
   const record = parseRecord(window.location.search);
 
   if (record.id && record.sig) {
+    // ECDSA path: when the registry carries a public key and the QR carries a
+    // payload hash, verify the signature cryptographically. This is the
+    // strongest path — it proves the issuer's private key signed exactly these
+    // fields, without exposing the secret or requiring the registry to store
+    // participant names.
+    if (hasWebCrypto() && loadedRegistry?.publicKey && record.h) {
+      try {
+        const pubKey = await importPublicKeyJWK(loadedRegistry.publicKey);
+        const ecdsaValid = await verifySignature(pubKey, record.h, record.sig);
+        if (ecdsaValid) {
+          const match = (loadedRegistry.certificates || []).find(c => norm(c.id).toUpperCase() === norm(record.id).toUpperCase());
+          renderEcdsaVerified(card, record, match, loadedRegistry);
+          return;
+        }
+        // ECDSA present but signature invalid — tampered record.
+        renderEcdsaMismatch(card, record, loadedRegistry);
+        return;
+      } catch (_) {
+        // Crypto unavailable at runtime — fall through to pair-match.
+      }
+    }
+
+    // Fallback: HMAC pair-match (schema 2 and legacy registries).
     const outcome = evaluateRecord(record, loadedRegistry);
-    if (outcome.status === 'verified') renderVerified(card, record, outcome.match);
+    if (outcome.status === 'verified') renderVerified(card, {
+      ...record,
+      event: record.event || loadedRegistry.event,
+      organization: record.organization || loadedRegistry.organization
+    }, outcome.match);
     else if (outcome.status === 'mismatch') renderMismatch(card, record, outcome.match, outcome.diffs);
     else if (outcome.status === 'not-found') renderNotFound(card, record, loadedRegistry);
     else renderUnconfirmed(card, record, outcome.status === 'invalid' ? outcome.reason : (record.legacySecretPresent

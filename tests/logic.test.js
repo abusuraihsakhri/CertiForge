@@ -66,13 +66,14 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   const { parseCSV, parseSpreadsheet } = await import('../js/spreadsheet.js');
   const { validateRows, validateProject } = await import('../js/validator.js');
   const { renderCertificateSVG, buildSvgSkeleton, clearSvgCache, wrapToLines } = await import('../js/pdf.js');
-  const { generateAll, isWorkerSupported, generationRows, isGenerating, cancelGeneration } = await import('../js/generator.js');
+  const { generateAll, isWorkerSupported, generationRows, isGenerating, cancelGeneration, buildPublicRegistry } = await import('../js/generator.js');
+  const cryptoModule = await import('../js/crypto.js');
   const { loadProjectFile, SAFE_FONT_DATA_URL, projectData } = await import('../js/project.js');
   const { pushHistory, resetHistory, undo, redo } = await import('../js/history.js');
   const { sanitizeProjectState, detectFontFormat, normalizeFontDataUrl } = await import('../js/security.js');
   const { LEGACY_VERIFY_SALT, verifyBaseUrl } = await import('../js/config.js');
   const ui = await import('../js/ui.js');
-  const { parseRecord, normalizeRegistry, evaluateRecord, renderUnconfirmed, renderVerified } = await import('../js/verify.js');
+  const { parseRecord, normalizeRegistry, evaluateRecord, renderUnconfirmed, renderVerified, renderEcdsaVerified, renderEcdsaMismatch } = await import('../js/verify.js');
   const {
     extractConferencePrefix,
     extractConferenceYear,
@@ -118,7 +119,8 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   assert(state.settings.verifySecret !== LEGACY_VERIFY_SALT, 'Default verifySecret must be random, not the legacy public salt');
   assert(randomVerifySecret() !== randomVerifySecret(), 'randomVerifySecret must produce unique values');
   const verifyUrl = getVerificationUrl(sampleCert, 'test-secret');
-  assert(verifyUrl.includes('id=ICML-2026-0001') && verifyUrl.includes('sig=' + sig1) && verifyUrl.includes('name=Alice+Example') && verifyUrl.includes('role=Speaker'), 'Verification URL malformed');
+  assert(verifyUrl.includes('id=ICML-2026-0001') && verifyUrl.includes('sig=' + sig1), 'Verification URL must carry id and sig');
+  assert(!verifyUrl.includes('name=') && !verifyUrl.includes('Alice') && !verifyUrl.includes('role='), 'Verification URL must not carry recipient PII');
   ok('2. signature v2 (fields, collisions, secret required, random default salt)');
 
   // 2b. file:// and null-origin fallback for verification base URL
@@ -372,6 +374,21 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   renderVerified(cardMock, rec, registry.certificates[0]);
   assert(cardMock.innerHTML.includes('Registry-Confirmed Credential'), 'verified view names the registry');
 
+  // Schema 2: hash-only public registry + minimal id+sig links
+  delete state._signingPublicKey;
+  const reg2 = normalizeRegistry({ schema: 2, event: 'ICML 2026', organization: 'Society', generatedAt: '2026-09-20T00:00:00Z', certificates: [{ id: 'CERT-1', sig: realSig }] });
+  assert(reg2.schema === 2, 'schema 2 must survive normalization');
+  assert(!reg2.certificates.some(c => c.name), 'schema-2 registry must expose no recipient names');
+  assert(evaluateRecord({ id: 'CERT-1', sig: realSig }, reg2).status === 'verified', 'minimal link: id+sig pair must verify against schema-2 registry');
+  assert(evaluateRecord({ id: 'CERT-1', sig: 'deadbeefdeadbeef' }, reg2).status === 'mismatch', 'schema-2: wrong digest must fail');
+  assert(evaluateRecord({ ...rec, sig: realSig }, reg2).status === 'verified', 'legacy full-field link must still verify via digest against schema-2 registry');
+  assert(evaluateRecord({ id: 'CERT-1', sig: realSig }, registry).status === 'verified', 'minimal link must verify against legacy plaintext registry');
+  assert(evaluateRecord({ id: 'CERT-1', name: 'Mallory', sig: realSig }, registry).status === 'mismatch', 'presented forged field must still fail against legacy registry');
+  state.registry = [{ id: 'CERT-1', name: 'Alice Example', role: 'Speaker', event: 'ICML 2026', date: '18 Sep 2026', organization: 'Society', sig: realSig, filename: 'CERT-1_Alice.pdf' }];
+  const pubReg = buildPublicRegistry();
+  assert(pubReg.schema === 2 && pubReg.certificates.every(c => Object.keys(c).sort().join(',') === 'id,sig'), 'public registry entries must carry only id and sig');
+  assert(!JSON.stringify(pubReg).includes('Alice'), 'public registry must not leak participant names or filenames');
+
   const verifyHtmlSource = fs.readFileSync(path.join(__dirname, '..', 'verify.html'), 'utf8');
   assert(!/<script(?![^>]*\bsrc=)[^>]*>/.test(verifyHtmlSource), 'verify.html must contain no inline scripts');
   assert(!/onclick=/.test(verifyHtmlSource), 'verify.html must not use inline event handlers');
@@ -380,6 +397,60 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   assert(/script-src 'self'(?!!)/.test(indexHtmlSource), 'index.html CSP must drop unsafe-inline for scripts');
   assert(/role="status"/.test(indexHtmlSource) && /aria-live="polite"/.test(indexHtmlSource), 'toast must be an aria-live status region');
   ok('15. verification portal trust model + CSP');
+
+  // 15b. ECDSA P-256 signing, schema-3 registry, portal verification, passphrase encryption
+  const { hasWebCrypto, generateKeyPair, exportPublicKeyJWK, exportPrivateKeyJWK, importPublicKeyJWK, importPrivateKeyJWK, signPayload, verifySignature, encryptWithPassphrase, decryptWithPassphrase } = cryptoModule;
+  assert(hasWebCrypto(), 'WebCrypto must be available in Node 20+');
+  const kp = await generateKeyPair();
+  const pubJWK = await exportPublicKeyJWK(kp.publicKey);
+  const privJWK = await exportPrivateKeyJWK(kp.privateKey);
+  assert(pubJWK.kty === 'EC' && pubJWK.crv === 'P-256', 'public key must be ECDSA P-256 JWK');
+  assert(privJWK.d, 'private key JWK must include the secret scalar d');
+  const privKey = await importPrivateKeyJWK(privJWK);
+  const pubKey = await importPublicKeyJWK(pubJWK);
+  const testHash = 'a'.repeat(64); // placeholder 64-char hex hash
+  const ecdsaSig = await signPayload(privKey, testHash);
+  assert(/^[A-Za-z0-9_\-]{60,120}$/.test(ecdsaSig), 'ECDSA signature must be base64url, 60-120 chars');
+  assert(await verifySignature(pubKey, testHash, ecdsaSig), 'ECDSA signature must verify');
+  assert(!(await verifySignature(pubKey, 'b'.repeat(64), ecdsaSig)), 'ECDSA verification must fail on different payload');
+  const otherKeyPair = await generateKeyPair();
+  const otherPub = await importPublicKeyJWK(await exportPublicKeyJWK(otherKeyPair.publicKey));
+  assert(!(await verifySignature(otherPub, testHash, ecdsaSig)), 'ECDSA verification must fail with wrong public key');
+  const ecdsaRecord = { id: 'CERT-ECDSA-1', sig: ecdsaSig, h: testHash };
+  const reg3 = normalizeRegistry({
+    schema: 3,
+    publicKey: pubJWK,
+    event: 'ICML 2026',
+    certificates: [ecdsaRecord]
+  });
+  assert(reg3.schema === 3, 'schema 3 must survive normalization');
+  assert(reg3.publicKey && reg3.publicKey.kty === 'EC', 'registry must carry the public key');
+  const ecdsaCard = { innerHTML: '' };
+  renderEcdsaVerified(ecdsaCard, { id: 'CERT-ECDSA-1', h: testHash }, ecdsaRecord, reg3);
+  assert(ecdsaCard.innerHTML.includes('ECDSA P-256 Signature Verified'), 'ECDSA verified view must show correct status');
+  assert(ecdsaCard.innerHTML.includes('Credential Cryptographically Verified'), 'ECDSA verified view must show title');
+  const mismatchCard = { innerHTML: '' };
+  renderEcdsaMismatch(mismatchCard, { id: 'CERT-ECDSA-1', h: testHash }, reg3);
+  assert(mismatchCard.innerHTML.includes('Signature Verification Failed'), 'ECDSA mismatch view must show failure');
+  // Passphrase encryption round-trip
+  const secretPayload = { publicKey: pubJWK, privateKey: privJWK };
+  const encrypted = await encryptWithPassphrase(secretPayload, 'test-passphrase-123');
+  assert(encrypted.v === 1 && encrypted.ct && encrypted.salt && encrypted.iv, 'encrypted output must have v, ct, salt, iv');
+  const decrypted = await decryptWithPassphrase(encrypted, 'test-passphrase-123');
+  assert(decrypted.privateKey.d === privJWK.d, 'decrypted private key must match original');
+  let wrongPassThrew = false;
+  try { await decryptWithPassphrase(encrypted, 'wrong-passphrase'); } catch (_) { wrongPassThrew = true; }
+  assert(wrongPassThrew, 'wrong passphrase must fail');
+  // Schema-3 registry with ECDSA + payload hash in public registry output
+  state.registry = [{ id: 'CERT-ECDSA-1', sig: ecdsaSig, h: testHash, name: 'Alice', role: 'Speaker', event: 'ICML 2026', date: '20 Sep 2026', organization: 'Society', filename: 'cert.pdf' }];
+  state._signingPublicKey = pubJWK;
+  const pubReg3 = buildPublicRegistry();
+  assert(pubReg3.schema === 3, 'buildPublicRegistry must emit schema 3 when signing key present');
+  assert(pubReg3.publicKey && pubReg3.publicKey.kty === 'EC', 'buildPublicRegistry must include publicKey');
+  assert(pubReg3.certificates[0].h === testHash, 'buildPublicRegistry must include payload hash');
+  assert(!JSON.stringify(pubReg3).includes('Alice'), 'buildPublicRegistry must not leak names even in schema 3');
+  delete state._signingPublicKey;
+  ok('15b. ECDSA P-256 signing, schema-3 registry, portal verification');
 
   // 16. Web Worker batch offloading: init handshake, per-record error isolation, fallback
   assert(typeof isWorkerSupported === 'function', 'isWorkerSupported exported');

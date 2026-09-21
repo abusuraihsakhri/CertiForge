@@ -126,16 +126,17 @@ export function computeVerificationSignature(data, secret) {
   return sha256(`${canonicalPayload(data)}|${key}`).slice(0, 16);
 }
 
-export function buildVerificationUrl(fields, sig) {
+// The verify URL carries the certificate ID, its keyed digest, and the
+// canonical payload hash. Recipient details never travel in the link: the
+// portal verifies cryptographically or against the published registry.
+// The payload hash enables direct ECDSA verification when the portal has the
+// organizer's public key (from the registry), even without a full registry.
+export function buildVerificationUrl(fields, sig, payloadHash) {
   const f = canonicalSignatureFields(fields);
   const p = new URLSearchParams();
   if (f.id) p.set('id', f.id);
-  if (f.name) p.set('name', f.name);
-  if (f.role) p.set('role', f.role);
-  if (f.event) p.set('event', f.event);
-  if (f.date) p.set('date', f.date);
-  if (f.organization) p.set('org', f.organization);
   if (sig) p.set('sig', sig);
+  if (payloadHash) p.set('h', payloadHash);
   return `${getVerificationBaseUrl()}?${p.toString()}`;
 }
 
@@ -161,11 +162,13 @@ export function verificationContext(row, index = 0) {
     organization: data.ORGANIZATION
   });
   const sig = computeVerificationSignature(fields, state.settings?.verifySecret);
+  const payloadHash = sha256(canonicalPayload(fields));
   return {
     CERTIFICATE_ID: certId,
     YEAR: String(state.certificate.year ?? ""),
     VERIFY_SIG: sig,
-    VERIFY_URL: buildVerificationUrl(fields, sig)
+    VERIFY_H: payloadHash,
+    VERIFY_URL: buildVerificationUrl(fields, sig, payloadHash)
   };
 }
 

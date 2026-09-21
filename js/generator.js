@@ -2,10 +2,14 @@ import { state } from './state.js';
 import { mappedRows } from './mapping.js';
 import { renderCertificateSVG, svgToPdf } from './pdf.js';
 import { getTemplate } from './templates.js';
-import { resolveText, verificationContext } from './variables.js';
+import { resolveText, verificationContext, canonicalSignatureFields, canonicalPayload } from './variables.js';
+import { sha256 } from './variables.js';
 import { safeFilename, uniqueFilename } from './utils.js';
 import { batchYieldEvery, workerPoolMax } from './config.js';
 import { updateGenerationProgress } from './progress.js';
+import { hasWebCrypto, importPrivateKeyJWK, exportPublicKeyJWK, exportPrivateKeyJWK, signPayload } from './crypto.js';
+import { loadSigningKey, storeSigningKey } from './storage.js';
+import { generateKeyPair } from './crypto.js';
 
 /**
  * Detect if Web Worker + OffscreenCanvas is supported in current environment.
@@ -44,30 +48,66 @@ function getWorkerUrl() {
 
 /**
  * Build one job per record: filename (collision-free), registry row and a lazy SVG
- * thunk. The verification context (ID + digest + QR URL) is computed exactly once
- * per record and shared by the printed artwork and the registry, so they can never
- * disagree. Building the SVG lazily keeps memory and main-thread time flat until a
- * worker actually asks for the next page.
+ * thunk. The verification context (ID + digest + payload hash + QR URL) is
+ * computed exactly once per record and shared by the printed artwork and the
+ * registry, so they can never disagree. When a project signing key is available
+ * the HMAC digest is replaced with a real ECDSA P-256 signature; the portal can
+ * then verify the certificate cryptographically using only the published public
+ * key — no secret required.
  */
-function buildJobs(rows) {
+async function buildJobs(rows) {
   const used = new Set();
-  return rows.map((row, i) => {
+
+  // Load or create the ECDSA signing key when WebCrypto is available.
+  let privateKey = null;
+  let publicKeyJWK = null;
+  if (hasWebCrypto()) {
+    try {
+      let keyPair = await loadSigningKey(state.projectName);
+      if (!keyPair) {
+        const kp = await generateKeyPair();
+        const pubJWK = await exportPublicKeyJWK(kp.publicKey);
+        const privJWK = await exportPrivateKeyJWK(kp.privateKey);
+        await storeSigningKey(state.projectName, pubJWK, privJWK);
+        keyPair = { publicKey: pubJWK, privateKey: privJWK };
+      }
+      privateKey = await importPrivateKeyJWK(keyPair.privateKey);
+      publicKeyJWK = keyPair.publicKey;
+    } catch (e) {
+      console.warn('ECDSA key unavailable, falling back to HMAC:', e);
+    }
+  }
+
+  const results = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const ctx = verificationContext(row, i);
-    const base = safeFilename(resolveText(state.settings.filename, row, ctx).replace(/\.pdf$/i, ""))
+    let sig = ctx.VERIFY_SIG;
+    let h = ctx.VERIFY_H;
+
+    if (privateKey) {
+      sig = await signPayload(privateKey, h);
+    }
+
+    const finalCtx = { ...ctx, VERIFY_SIG: sig, VERIFY_URL: ctx.VERIFY_URL };
+
+    const base = safeFilename(resolveText(state.settings.filename, row, finalCtx).replace(/\.pdf$/i, ""))
       || ctx.CERTIFICATE_ID || `certificate-${i + 1}`;
     const fullName = uniqueFilename(base, used) + ".pdf";
     const registryItem = {
       id: ctx.CERTIFICATE_ID,
+      sig,
+      h,
       name: String(row.NAME || ""),
       role: String(row.ROLE || ""),
       event: String(row.EVENT || ""),
       date: String(row.DATE || ""),
       organization: String(row.ORGANIZATION || ""),
-      sig: ctx.VERIFY_SIG,
       filename: fullName
     };
-    return { id: i, row, ctx, fullName, registryItem, svg: () => renderCertificateSVG(row, i, ctx) };
-  });
+    results.push({ id: i, row, ctx: finalCtx, fullName, registryItem, svg: () => renderCertificateSVG(row, i, finalCtx) });
+  }
+  return { jobs: results, publicKeyJWK };
 }
 
 function zipAvailable() {
@@ -293,6 +333,30 @@ async function generateAllWorker(jobs) {
   return { acc, template };
 }
 
+/**
+ * Public verification registry (schema 2), privacy-safe by construction: each
+ * entry is only a certificate ID and its keyed digest. Names, roles, dates and
+ * filenames never leave this machine — the digest is computed with the
+ * organizer's signing secret, so it cannot be reversed into the fields it
+ * covers, and cannot be forged for different fields without the secret.
+ * The portal verifies an exact id+digest pair against this list.
+ */
+export function buildPublicRegistry() {
+  return {
+    schema: state._signingPublicKey ? 3 : 2,
+    publicKey: state._signingPublicKey || undefined,
+    event: String(state.globalFields?.EVENT || ""),
+    organization: String(state.globalFields?.ORGANIZATION || ""),
+    project: state.projectName,
+    generatedAt: new Date().toISOString(),
+    signature: state._signingPublicKey
+      ? { algorithm: "ecdsa-p256", hash: "sha256-canonical-payload", fields: ["id", "name", "role", "event", "date", "organization"] }
+      : { algorithm: "sha256-v2", encoding: "first 16 hex chars", fields: ["id", "name", "role", "event", "date", "organization"] },
+    totalCertificates: (state.registry || []).length,
+    certificates: (state.registry || []).map(c => ({ id: c.id, sig: c.sig, ...(c.h ? { h: c.h } : {}) }))
+  };
+}
+
 export async function generateAll() {
   if (_running) throw new Error("A batch is already being generated. Cancel it or wait for it to finish.");
   _running = true;
@@ -305,7 +369,9 @@ export async function generateAll() {
     throw new Error("No valid participant names were found. Map the NAME field before generating certificates.");
   }
   const skipped = source.length - rows.length;
-  const jobs = buildJobs(rows);
+  const jobsResult = await buildJobs(rows);
+  const jobs = jobsResult.jobs;
+  if (jobsResult.publicKeyJWK) state._signingPublicKey = jobsResult.publicKeyJWK;
 
   try {
     let acc;

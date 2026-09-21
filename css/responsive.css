@@ -1,7 +1,7 @@
 @media (max-width:1180px){
   :root{--topbar-h:60px}
-  .workspace{grid-template-columns:190px minmax(0,1fr)}
-  .main-panel{padding:18px 18px 28px}
+  .sidebar{width:190px}
+  #app{padding:18px 18px 28px}
   .editor-layout{
     grid-template-columns:minmax(0,1fr) 260px;
     grid-template-areas:
@@ -17,22 +17,24 @@
 }
 @media (max-width:860px){
   :root{--topbar-h:58px}
-  .topbar{padding:0 12px;gap:10px}
+  body{height:auto;overflow:visible}
+  .workspace{display:block;overflow:visible;min-height:calc(100vh - var(--topbar-h))}
+  .topbar{position:sticky;top:0;padding:0 12px;gap:10px}
   .brand span{display:none}
   .top-actions{gap:4px}
   .top-actions .btn{min-height:32px;padding:7px 9px;font-size:11px}
-  .workspace{display:block;min-height:calc(100vh - var(--topbar-h))}
   .sidebar{
     position:sticky;top:var(--topbar-h);z-index:40;
     width:100%;height:auto;display:block;
     padding:7px 10px;border-right:0;border-bottom:1px solid var(--line);
     overflow-x:auto;overflow-y:hidden;background:rgba(255,255,255,.96)
   }
-  .sidebar section:first-child{display:flex;gap:4px;min-width:max-content}
+  .sidebar-brand{display:none}
+  .sidebar nav{flex-direction:row;padding:0;min-width:max-content}
   .sidebar .section-title,.sidebar-bottom{display:none}
   .nav-item{width:auto;min-height:34px;margin:0;padding:6px 9px;white-space:nowrap;font-size:11px}
   .nav-item span{width:22px;height:20px;flex-basis:22px;font-size:8px}
-  .main-panel{padding:14px 12px 24px}
+  #app{padding:14px 12px 24px;overflow:visible}
   .page-head{align-items:flex-start;gap:12px}
   h1{font-size:24px}
   .template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -52,7 +54,7 @@
   .top-actions{width:100%;display:grid;grid-template-columns:repeat(4,1fr)}
   .top-actions .btn{width:100%;padding:7px 6px}
   .sidebar{top:98px}
-  .main-panel{padding:12px 10px 22px}
+  #app{padding:12px 10px 22px}
   .page-head{flex-direction:column;margin-bottom:14px}
   .page-head>.toolbar,.page-head>.btn{width:100%}
   .page-head>.toolbar .btn{flex:1}
@@ -77,8 +79,9 @@
   .top-actions .btn{font-size:10px}
 }
 @media print{
+  body{height:auto;overflow:visible;background:#fff}
   .topbar,.sidebar,.page-head,.verify-footer,.verify-actions{display:none!important}
-  .workspace{display:block}
+  .workspace{display:block;overflow:visible}
   .main-panel{padding:0}
-  body{background:#fff}
+  #app{padding:0;overflow:visible}
 }

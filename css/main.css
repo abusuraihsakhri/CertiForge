@@ -76,6 +76,7 @@ body {
 /* WORKSPACE */
 .workspace { display: flex; flex: 1; overflow: hidden; }
 .sidebar { width: 260px; background: #fff; border-right: 1px solid #d1d8df; display: flex; flex-direction: column; box-shadow: 2px 0 8px rgba(0,0,0,0.02); z-index: 5; }
+.sidebar-brand { padding: 24px; text-align: center; border-bottom: 1px solid #d1d8df; }
 .section-title { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); padding: 24px 20px 12px; letter-spacing: 1px; }
 nav { display: flex; flex-direction: column; padding: 0 12px; gap: 4px; }
 .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px; font-size: 14px; font-weight: 500; color: var(--color-text-dark); background: transparent; border: none; border-radius: 4px; cursor: pointer; text-align: left; transition: background 0.2s; }

@@ -4,8 +4,9 @@ import { toast } from './utils.js';
 import { autosaveIntervalMs } from './config.js';
 
 const DB_NAME = 'CertiForge';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'projects';
+const KEY_STORE = 'keys';
 
 let _dbPromise = null;
 
@@ -19,7 +20,9 @@ function openDB() {
     let req;
     try { req = indexedDB.open(DB_NAME, DB_VERSION); } catch (err) { reject(err); return; }
     req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+      if (!db.objectStoreNames.contains(KEY_STORE)) db.createObjectStore(KEY_STORE);
     };
     req.onblocked = () => reject(new Error('Autosave database is blocked by another open tab.'));
     req.onsuccess = () => {
@@ -81,6 +84,40 @@ export async function clearAutosave() {
     const database = await openDB();
     const tx = database.transaction(STORE, 'readwrite');
     tx.objectStore(STORE).delete('current_project');
+    await txDone(tx);
+  } catch (e) { /* ignore */ }
+}
+
+// ---- Signing key storage ----
+
+export async function storeSigningKey(projectName, publicKeyJWK, privateKeyJWK) {
+  try {
+    const database = await openDB();
+    const tx = database.transaction(KEY_STORE, 'readwrite');
+    tx.objectStore(KEY_STORE).put({ publicKey: publicKeyJWK, privateKey: privateKeyJWK }, projectName);
+    await txDone(tx);
+  } catch (e) { console.warn('Signing key store failed:', e); }
+}
+
+export async function loadSigningKey(projectName) {
+  try {
+    const database = await openDB();
+    const tx = database.transaction(KEY_STORE, 'readonly');
+    const req = tx.objectStore(KEY_STORE).get(projectName);
+    const data = await new Promise((res, rej) => {
+      req.onsuccess = () => res(req.result || null);
+      req.onerror = () => rej(req.error);
+      tx.onabort = () => rej(tx.error || new Error('Key read aborted.'));
+    });
+    return data && data.publicKey && data.privateKey ? data : null;
+  } catch (e) { console.warn('Signing key load failed:', e); return null; }
+}
+
+export async function clearSigningKey(projectName) {
+  try {
+    const database = await openDB();
+    const tx = database.transaction(KEY_STORE, 'readwrite');
+    tx.objectStore(KEY_STORE).delete(projectName);
     await txDone(tx);
   } catch (e) { /* ignore */ }
 }

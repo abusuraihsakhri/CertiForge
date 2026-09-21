@@ -7,12 +7,14 @@ import { renderCanvas } from './canvas.js';
 import { renderCurrentEditor, addTextElement, addQRElement, addImageFile, loadCustomFont } from './editor.js';
 import { parseSpreadsheet } from './spreadsheet.js';
 import { validateRows, validateProject } from './validator.js';
-import { generateAll, isGenerating, cancelGeneration, generationRows } from './generator.js';
+import { generateAll, isGenerating, cancelGeneration, generationRows, buildPublicRegistry } from './generator.js';
 import { makeZip } from './zip.js';
 import { saveProject, loadProjectFile } from './project.js';
 import { undo, redo } from './history.js';
 import { renderCertificateSVG } from './pdf.js';
 import { LEGACY_VERIFY_SALT } from './config.js';
+import { hasWebCrypto, encryptWithPassphrase, decryptWithPassphrase, exportPublicKeyJWK, exportPrivateKeyJWK, generateKeyPair } from './crypto.js';
+import { loadSigningKey, storeSigningKey } from './storage.js';
 
 export { updateGenerationProgress } from './progress.js';
 
@@ -217,6 +219,16 @@ function renderGenerate(app) {
       <input id="verifySecret" type="password" autocomplete="off" spellcheck="false" placeholder="Private secret key for SHA-256 signatures">
       <p class="mini-help" style="margin-top:6px">Keeps signatures unforgeable. It never leaves this device, but it lives in autosave and exported project files — treat those like credentials. Publish the exported registry next to verify.html so scans confirm against it.</p>
     </div>
+    <div class="field" style="margin-top:14px">
+      <label>ECDSA P-256 signing key</label>
+      <div id="ecdsaStatus" class="mini-help" style="margin-top:6px">Checking…</div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button type="button" class="btn" id="exportKeyBtn" style="display:none">Export Key Backup</button>
+        <button type="button" class="btn" id="importKeyBtn">Import Key</button>
+      </div>
+      <input type="file" id="keyFileInput" accept=".json,application/json" hidden>
+      <p class="mini-help" style="margin-top:6px">When active, certificates are signed with ECDSA P-256 — the portal verifies using only the published public key. Back up your key to issue from other devices.</p>
+    </div>
     <p class="mini-help" style="margin-top:9px">Example: {{CERTIFICATE_ID}}_{{NAME}}.pdf</p>
   </div>
   <div class="card panel"><h2>Batch summary</h2><div class="metric-grid"><div class="metric"><strong>${batchCount}</strong><span>PDF FILES</span></div><div class="metric"><strong>${val.missingName}</strong><span>ROWS SKIPPED</span></div><div class="metric"><strong>${val.duplicateNames}</strong><span>DUPLICATE NAMES</span></div></div><div class="section-gap"></div><button class="btn primary" id="generateBtn" style="width:100%;padding:13px">GENERATE ALL CERTIFICATES</button><div class="section-gap"></div><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progressBar"></div></div><div id="progressText" class="mini-help" style="margin-top:8px" aria-live="polite">Ready to generate ${batchCount} certificates.</div></div></div>
@@ -270,6 +282,70 @@ function renderGenerate(app) {
     };
   }
 
+  // ECDSA signing key management
+  const ecdsaStatus = document.getElementById("ecdsaStatus");
+  const exportKeyBtn = document.getElementById("exportKeyBtn");
+  const importKeyBtn = document.getElementById("importKeyBtn");
+  const keyFileInput = document.getElementById("keyFileInput");
+
+  if (hasWebCrypto() && ecdsaStatus) {
+    loadSigningKey(state.projectName).then(existing => {
+      if (existing) {
+        ecdsaStatus.innerHTML = '✓ ECDSA P-256 signing key active — certificates are cryptographically signed.';
+        ecdsaStatus.style.color = 'var(--color-secure-green)';
+        if (exportKeyBtn) exportKeyBtn.style.display = '';
+      } else {
+        ecdsaStatus.textContent = 'A signing key will be auto-created on first Generate.';
+      }
+    });
+  } else if (ecdsaStatus) {
+    ecdsaStatus.textContent = 'WebCrypto unavailable — HMAC signing only (non-secure context or unsupported browser).';
+  }
+
+  if (exportKeyBtn) {
+    exportKeyBtn.onclick = async () => {
+      try {
+        const keyPair = await loadSigningKey(state.projectName);
+        if (!keyPair) { toast("No signing key to export."); return; }
+        const passphrase = prompt("Enter a passphrase to encrypt your key backup:");
+        if (!passphrase) return;
+        const encrypted = await encryptWithPassphrase(keyPair, passphrase);
+        const blob = new Blob([JSON.stringify(encrypted, null, 2)], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `${safeFilename(state.projectName || "CertiForge")}-signing-key-backup.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+        toast("Key backup downloaded. Store it safely — it's encrypted with your passphrase.");
+      } catch (e) { toast(e.message); }
+    };
+  }
+
+  if (importKeyBtn && keyFileInput) {
+    importKeyBtn.onclick = () => keyFileInput.click();
+    keyFileInput.onchange = async () => {
+      const file = keyFileInput.files[0];
+      if (!file) return;
+      try {
+        const data = JSON.parse(await file.text());
+        if (!data.ct || !data.salt || !data.iv) throw new Error("Not a valid CertiForge key backup file.");
+        const passphrase = prompt("Enter the passphrase for this key backup:");
+        if (!passphrase) return;
+        const keyPair = await decryptWithPassphrase(data, passphrase);
+        if (!keyPair.publicKey || !keyPair.privateKey) throw new Error("Backup did not contain a valid key pair.");
+        await storeSigningKey(state.projectName, keyPair.publicKey, keyPair.privateKey);
+        toast("Signing key restored. Existing certificates remain valid.");
+        // Refresh status
+        if (ecdsaStatus) {
+          ecdsaStatus.innerHTML = '✓ ECDSA P-256 signing key active — certificates are cryptographically signed.';
+          ecdsaStatus.style.color = 'var(--color-secure-green)';
+        }
+        if (exportKeyBtn) exportKeyBtn.style.display = '';
+      } catch (e) { toast("Key import failed: " + e.message); }
+      keyFileInput.value = '';
+    };
+  }
+
   const generate = document.getElementById("generateBtn");
   generate.onclick = async () => {
     sync(false);
@@ -299,7 +375,7 @@ function renderGenerate(app) {
           <button class="btn" id="downloadRegistry">DOWNLOAD VERIFICATION REGISTRY (JSON)</button>
           <a href="verify.html" target="_blank" rel="noopener" class="btn ghost">OPEN VERIFICATION PORTAL ↗</a>
         </div>
-        <p class="mini-help" style="margin-top:12px">Publish the registry as <code>verification-registry.json</code> next to verify.html so QR scans confirm automatically. Keep the signing secret private.</p>
+        <p class="mini-help" style="margin-top:12px">Publish the registry as <code>verification-registry.json</code> next to verify.html so QR scans confirm automatically. The registry is privacy-safe: it contains only certificate IDs and keyed digests — no participant names. ${state._signingPublicKey ? 'Certificates are signed with ECDSA P-256 — the registry includes your public key so the portal verifies cryptographically.' : 'Keep the signing secret private.'}</p>
       </div>`;
 
       document.getElementById("downloadZip").onclick = async () => {
@@ -318,16 +394,7 @@ function renderGenerate(app) {
       if (regBtn) {
         regBtn.onclick = () => {
           try {
-            const data = JSON.stringify({
-              project: state.projectName,
-              event: state.globalFields.EVENT,
-              organization: state.globalFields.ORGANIZATION,
-              year: state.certificate.year,
-              generatedAt: new Date().toISOString(),
-              signature: { algorithm: "sha256-v2", encoding: "first 16 hex chars", fields: ["id", "name", "role", "event", "date", "organization"] },
-              totalCertificates: (state.registry || []).length,
-              certificates: state.registry || []
-            }, null, 2);
+            const data = JSON.stringify(buildPublicRegistry(), null, 2);
             const blob = new Blob([data], { type: "application/json" });
             const a = document.createElement("a");
             a.href = URL.createObjectURL(blob);

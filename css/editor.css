@@ -33,7 +33,7 @@
   background:#fbfcfd;color:#475467;font-size:10.5px
 }
 .element-item:hover{background:#f5f7fa;border-color:#d5d9e0}
-.element-row.selected .element-item{background:var(--brand-soft);border-color:#b9b8fb;color:var(--brand-strong)}
+.element-row.selected .element-item{background:var(--brand-soft);border-color:var(--color-ink-blue);color:var(--color-ink-navy)}
 .element-item span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
 .element-item span:last-child{flex-shrink:0;color:#98a2b3;font-size:7.5px;font-weight:800;text-transform:uppercase}
 .layer-controls{display:flex;flex-direction:column;gap:2px}
