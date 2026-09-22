@@ -394,3 +394,24 @@ p.lead{margin:4px 0 0;max-width:740px;color:var(--muted);font-size:12px;line-hei
   background:#f2f4f7;color:#667085;font-size:8.5px;font-weight:700
 }
 .mapping-token-note{margin:12px}
+
+
+/* PARTICIPANT IMPORT */
+.import-summary{
+  display:flex;align-items:center;gap:12px;
+  padding:13px 14px;border-color:#d7e6dc;background:#fbfefc
+}
+.import-icon{
+  width:34px;height:34px;flex:0 0 34px;
+  display:grid;place-items:center;border-radius:10px;
+  background:#ecfdf3;color:#15803d;font-size:14px;font-weight:900
+}
+.import-summary-copy{min-width:0;flex:1}
+.import-summary-copy strong{
+  display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:#1d2939;font-size:12.5px
+}
+.import-summary-copy span{display:block;margin-top:3px;color:#667085;font-size:9.5px}
+.panel-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}
+.panel-title-row h2{margin:0}
+.panel-title-row span{color:#98a2b3;font-size:9px}
