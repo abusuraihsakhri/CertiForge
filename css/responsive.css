@@ -19,7 +19,11 @@
 @media (max-width:860px){
   :root{--topbar-h:58px}
   body{height:auto;overflow:visible}
-  .workspace{display:block;overflow:visible;min-height:calc(100vh - var(--topbar-h))}
+  .workspace{display:flex;flex-direction:column;overflow:visible;min-height:calc(100vh - var(--topbar-h))}
+  .main-panel{display:contents}
+  .main-panel>.topbar{order:0}
+  .sidebar{order:1}
+  #app{order:2;flex:none;width:100%}
   .topbar{position:sticky;top:0;padding:0 12px;gap:10px}
   .verify-shell .brand span{display:none}
   .top-project strong{max-width:36vw}
