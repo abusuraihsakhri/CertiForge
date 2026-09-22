@@ -73,7 +73,7 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   const { sanitizeProjectState, detectFontFormat, normalizeFontDataUrl } = await import('../js/security.js');
   const { LEGACY_VERIFY_SALT, verifyBaseUrl } = await import('../js/config.js');
   const ui = await import('../js/ui.js');
-  const { parseRecord, normalizeRegistry, evaluateRecord, renderUnconfirmed, renderVerified, renderEcdsaVerified, renderEcdsaMismatch } = await import('../js/verify.js');
+  const { parseRecord, normalizeRegistry, evaluateRecord, evaluateEcdsaRecord, renderUnconfirmed, renderVerified, renderEcdsaVerified, renderEcdsaMismatch } = await import('../js/verify.js');
   const {
     extractConferencePrefix,
     extractConferenceYear,
@@ -81,6 +81,7 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
     getVerificationUrl,
     getVerificationBaseUrl,
     verificationContext,
+    applyVerificationSignature,
     resolveText,
     sampleRecord,
     formatId
@@ -416,15 +417,35 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   const otherKeyPair = await generateKeyPair();
   const otherPub = await importPublicKeyJWK(await exportPublicKeyJWK(otherKeyPair.publicKey));
   assert(!(await verifySignature(otherPub, testHash, ecdsaSig)), 'ECDSA verification must fail with wrong public key');
+  const testHash2 = 'b'.repeat(64);
+  const ecdsaSig2 = await signPayload(privKey, testHash2);
   const ecdsaRecord = { id: 'CERT-ECDSA-1', sig: ecdsaSig, h: testHash };
   const reg3 = normalizeRegistry({
     schema: 3,
     publicKey: pubJWK,
     event: 'ICML 2026',
-    certificates: [ecdsaRecord]
+    certificates: [
+      ecdsaRecord,
+      { id: 'CERT-ECDSA-2', sig: ecdsaSig2, h: testHash2 }
+    ]
   });
   assert(reg3.schema === 3, 'schema 3 must survive normalization');
   assert(reg3.publicKey && reg3.publicKey.kty === 'EC', 'registry must carry the public key');
+  assert(reg3.certificates[0].h === testHash, 'schema-3 normalization must preserve the registered payload hash');
+  assert((await evaluateEcdsaRecord({ id: 'CERT-ECDSA-1', sig: ecdsaSig, h: testHash }, reg3)).status === 'verified', 'registered ECDSA QR tuple must verify');
+  assert((await evaluateEcdsaRecord({ id: 'CERT-ECDSA-2', sig: ecdsaSig, h: testHash }, reg3)).status === 'mismatch', 'valid signature/hash from one certificate must not verify under another registered ID');
+  assert((await evaluateEcdsaRecord({ id: 'CERT-ECDSA-NOPE', sig: ecdsaSig, h: testHash }, reg3)).status === 'not-found', 'valid ECDSA material must not verify an unregistered ID');
+
+  const signedCtx = applyVerificationSignature({
+    CERTIFICATE_ID: 'CERT-ECDSA-1',
+    VERIFY_SIG: 'old-digest',
+    VERIFY_H: testHash,
+    VERIFY_URL: 'https://example.invalid/old'
+  }, ecdsaSig);
+  const signedQr = parseRecord(new URL(signedCtx.VERIFY_URL).search);
+  assert(signedCtx.VERIFY_SIG === ecdsaSig && signedQr.sig === ecdsaSig, 'QR URL must carry the final ECDSA signature, not the earlier keyed digest');
+  assert(signedQr.id === 'CERT-ECDSA-1' && signedQr.h === testHash, 'rebuilt QR URL must retain certificate ID and payload hash');
+
   const ecdsaCard = { innerHTML: '' };
   renderEcdsaVerified(ecdsaCard, { id: 'CERT-ECDSA-1', h: testHash }, ecdsaRecord, reg3);
   assert(ecdsaCard.innerHTML.includes('ECDSA P-256 Signature Verified'), 'ECDSA verified view must show correct status');
@@ -585,9 +606,12 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   // 21. Editorial design system integration
   const atelierCss = fs.readFileSync(path.join(__dirname, '..', 'css/atelier.css'), 'utf8');
   const themeSource = fs.readFileSync(path.join(__dirname, '..', 'js/theme.js'), 'utf8');
+  const generatorSource = fs.readFileSync(path.join(__dirname, '..', 'js/generator.js'), 'utf8');
   assert(indexHtmlSource.includes('css/atelier.css'), 'index.html must load the editorial design system');
   assert(atelierCss.includes('.cert-canvas::before') && atelierCss.includes('content:none!important'), 'editor chrome must not force decorative overlays onto every certificate');
   assert(themeSource.includes("storedTheme() || 'light'"), 'light theme must be the default when no preference is stored');
+  assert(generatorSource.includes('applyVerificationSignature(ctx, sig)'), 'generator must rebuild the QR URL after the final ECDSA signature is produced');
+  assert(!generatorSource.includes('VERIFY_URL: ctx.VERIFY_URL'), 'generator must not retain the pre-ECDSA QR URL');
   const modernTemplate = getTemplate('modern');
   assert(modernTemplate.background === '#f6f0e1', 'flagship modern template must use the ivory paper palette');
   assert(modernTemplate.elements.some(e => e.id === 'seal' && e.type === 'image'), 'flagship modern template must include its template-owned seal');
