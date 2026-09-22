@@ -94,6 +94,9 @@ body{height:auto;min-height:100vh;overflow:visible;background:var(--color-bg-lin
 .noscript-note{text-align:center;padding:40px}
 
 @media(max-width:620px){
+  .verify-shell .topbar{flex-wrap:nowrap;min-height:58px;height:58px}
+  .verify-shell .top-actions{width:auto;display:flex}
+  .verify-shell .top-actions .btn{width:auto}
   .verify-main{place-items:start center;padding:18px 10px}
   .verify-card{border-radius:14px}
   .verify-head{padding:21px 17px 17px}
