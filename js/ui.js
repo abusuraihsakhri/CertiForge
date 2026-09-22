@@ -102,19 +102,37 @@ function renderTemplates(app) {
   draw();
 }
 
+let _editorZoom = "fit";
+
+function applyEditorZoom() {
+  const canvas = document.getElementById("editorCanvas");
+  if (!canvas) return;
+  const pageWidth = getTemplate(state.templateId)?.page?.width || 1123;
+  canvas.style.maxWidth = _editorZoom === "100" ? "none" : "";
+  canvas.style.width = _editorZoom === "fit" ? "100%" : (_editorZoom === "75" ? "75%" : pageWidth + "px");
+  document.querySelectorAll("[data-zoom]").forEach(btn => btn.setAttribute("aria-pressed", String(btn.dataset.zoom === _editorZoom)));
+}
+
 function renderEditor(app) {
-  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">02 / DESIGN</div><h1>Design your certificate.</h1><p class="lead">Drag editable elements directly on the certificate, or use exact position controls.</p></div><div class="toolbar"><button class="btn" id="switchTemplate">Templates</button><button class="btn primary" id="toData">Continue</button></div></div>
+  app.innerHTML = `<div class="page editor-page"><div class="page-head"><div><div class="eyebrow">02 / DESIGN</div><h1>Design your certificate.</h1><p class="lead">Select an element to edit it. Drag on the canvas or use precise values in the inspector.</p></div><div class="toolbar"><button class="btn" id="switchTemplate">Templates</button><button class="btn primary" id="toData">Continue</button></div></div>
   <div class="editor-layout"><div class="editor-panel elements">
     <h3>Project</h3><div class="field"><label for="projectNameInput">Project name</label><input id="projectNameInput"></div>
-    <h3 style="margin-top:18px">Elements</h3>
-    <div class="toolbar compact"><button class="btn" id="addTextBtn">+ Text</button><button class="btn" id="addImageBtn">+ Logo / Signature</button><button class="btn" id="addQRBtn">+ QR Code</button></div>
+    <div class="panel-heading-row"><h3>Layers</h3><span id="layerCount"></span></div>
+    <div class="editor-insert-grid"><button class="btn" id="addTextBtn">+ Text</button><button class="btn" id="addImageBtn">+ Image</button><button class="btn" id="addQRBtn">+ QR</button></div>
     <input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" aria-label="Upload logo or signature image" hidden>
     <input id="fontFileInput" type="file" accept=".ttf,.otf,.woff,.woff2" aria-label="Upload custom font file" hidden>
-    <div id="elementList" class="element-list" style="margin-top:10px" aria-label="Element layers"></div>
-    <div class="toolbar compact" style="margin-top:10px"><button class="btn ghost" id="undoBtn" title="Ctrl+Z">&#8617; Undo</button><button class="btn ghost" id="redoBtn" title="Ctrl+Shift+Z">&#8618; Redo</button></div>
-    <div class="mini-help" style="margin:14px 4px">Tip: use variables such as <b>{{NAME}}</b>, <b>{{ROLE}}</b>, <b>{{EVENT}}</b>, and spreadsheet tokens such as <b>{{REGISTRATION_ID}}</b>. Drag elements or nudge with arrow keys.</div>
+    <div id="elementList" class="element-list" aria-label="Element layers"></div>
+    <div class="mini-help editor-tip">Drag elements on the canvas. Use arrow keys to nudge and Shift + arrow for fine movement.</div>
   </div>
-  <div class="canvas-stage"><div id="editorCanvas"></div></div><div class="editor-panel properties"><h3>Properties</h3><div id="properties"></div></div></div></div>`;
+  <div class="canvas-column">
+    <div class="canvas-toolbar">
+      <div class="canvas-toolbar-group"><button class="tool-btn" id="undoBtn" title="Undo (Ctrl+Z)">↶</button><button class="tool-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)">↷</button></div>
+      <div class="canvas-toolbar-title">Canvas</div>
+      <div class="canvas-toolbar-group zoom-group"><button class="tool-btn" data-zoom="fit" aria-pressed="true">Fit</button><button class="tool-btn" data-zoom="75" aria-pressed="false">75%</button><button class="tool-btn" data-zoom="100" aria-pressed="false">100%</button></div>
+    </div>
+    <div class="canvas-stage"><div id="editorCanvas"></div></div>
+  </div>
+  <div class="editor-panel properties"><div class="panel-heading-row"><h3>Inspector</h3><span>Selected element</span></div><div id="properties"></div></div></div></div>`;
   const project = document.getElementById("projectNameInput");
   project.value = state.projectName;
   project.onchange = () => {
@@ -133,7 +151,14 @@ function renderEditor(app) {
   fontInput.onchange = async () => { try { await loadCustomFont(fontInput.files[0]); } catch (e) { toast(e.message); } finally { fontInput.value = ""; } };
   document.getElementById("undoBtn").onclick = () => historyAction(undo, "Undo");
   document.getElementById("redoBtn").onclick = () => historyAction(redo, "Redo");
+  document.querySelectorAll("[data-zoom]").forEach(btn => btn.onclick = () => {
+    _editorZoom = btn.dataset.zoom;
+    applyEditorZoom();
+  });
+  const layerCount = document.getElementById("layerCount");
+  if (layerCount) layerCount.textContent = state.elements.length + " elements";
   renderCurrentEditor();
+  applyEditorZoom();
 }
 
 function renderData(app) {
