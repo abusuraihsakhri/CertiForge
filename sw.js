@@ -1,4 +1,4 @@
-const CACHE = 'certiforge-v0.6.0';
+const CACHE = 'certiforge-v0.7.0';
 const ASSETS = [
   './',
   './index.html',
@@ -15,6 +15,7 @@ const ASSETS = [
   './vendor/jszip.min.js',
   './vendor/qrcode.min.js',
   './js/main.js',
+  './js/theme.js',
   './js/state.js',
   './js/template-assets.js',
   './js/templates.js',

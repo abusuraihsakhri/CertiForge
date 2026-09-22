@@ -36,7 +36,7 @@ Create a certificate once, connect it to an Excel or CSV file, generate individu
 |---:|---|
 | 1️⃣ | Choose a certificate template |
 | 2️⃣ | Customize text, logos, signatures, fonts, and layout |
-| 3️⃣ | Upload XLSX, XLS, or CSV participant data |
+| 3️⃣ | Upload XLSX, XLS, CSV, or TSV participant data |
 | 4️⃣ | Map spreadsheet columns to certificate variables |
 | 5️⃣ | Preview participant certificates |
 | 6️⃣ | Configure certificate IDs and QR verification |
@@ -50,6 +50,10 @@ Create a certificate once, connect it to an Excel or CSV file, generate individu
 
 ### 🎨 Certificate Studio
 
+- Dark studio theme by default with a persistent light-theme toggle
+- Fixed desktop workflow sidebar with an independently scrolling workspace
+- Off-canvas workflow drawer with hamburger control on tablets and phones
+- Dot-grid editor artboard that keeps the certificate visually distinct
 - **13 built-in certificate templates** across medical, academic, conference, award, technology, corporate, and sports use cases
 - Editable text elements with direct drag positioning
 - Logo, signature, and image upload
@@ -248,6 +252,8 @@ The complete primary workflow is functional:
 - ✅ Custom fonts
 - ✅ IndexedDB autosave
 - ✅ PWA/service-worker support
+- ✅ Dark/light theme persistence
+- ✅ Responsive mobile workflow drawer
 
 ### Current development priorities
 

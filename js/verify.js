@@ -19,6 +19,7 @@
  */
 import { escapeHTML } from './utils.js';
 import { hasWebCrypto, importPublicKeyJWK, verifySignature } from './crypto.js';
+import { initTheme } from './theme.js';
 
 const esc = escapeHTML;
 const SIG_PATTERN = /^[a-zA-Z0-9_\-]{8,200}$/;
@@ -381,6 +382,7 @@ async function loadStaticRegistry() {
 }
 
 async function init() {
+  initTheme();
   const stamp = document.getElementById('timestamp');
   if (stamp) stamp.textContent = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   const card = document.getElementById('verifyCard');
