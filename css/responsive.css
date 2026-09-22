@@ -3,13 +3,14 @@
   .sidebar{width:190px}
   #app{padding:18px 18px 28px}
   .editor-layout{
-    grid-template-columns:minmax(0,1fr) 260px;
+    grid-template-columns:minmax(0,1fr) 250px;
     grid-template-areas:
       "canvas properties"
       "elements properties";
     min-height:0
   }
-  .editor-layout>.canvas-stage{grid-area:canvas;height:auto;min-height:430px}
+  .editor-layout>.canvas-column{grid-area:canvas;min-height:430px}
+  .editor-layout>.canvas-column .canvas-stage{height:auto;min-height:390px}
   .editor-layout>.properties{grid-area:properties;max-height:none}
   .editor-layout>.elements{grid-area:elements;max-height:none}
   .element-list{max-height:240px}
@@ -39,7 +40,8 @@
   h1{font-size:24px}
   .template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .editor-layout{display:flex;flex-direction:column;gap:10px}
-  .editor-layout>.canvas-stage{order:1;width:100%;min-height:300px;height:auto;padding:12px}
+  .editor-layout>.canvas-column{order:1;width:100%;min-height:330px}
+  .editor-layout>.canvas-column .canvas-stage{min-height:285px;height:auto;padding:12px}
   .editor-layout>.elements{order:2;width:100%;max-height:none}
   .editor-layout>.properties{order:3;width:100%;max-height:none}
   .element-list{max-height:190px}
@@ -68,7 +70,9 @@
   .mapping-grid{grid-template-columns:1fr}
   .panel{padding:13px}
   .dropzone{min-height:150px;padding:20px 14px}
-  .canvas-stage{border-radius:12px}
+  .canvas-column{border-radius:10px}
+  .canvas-toolbar{grid-template-columns:auto 1fr auto}
+  .canvas-toolbar-title{text-align:center}
   .prop-row{grid-template-columns:1fr 1fr}
   .preview-stage{border-radius:11px}
   .verify-actions{flex-direction:column}
