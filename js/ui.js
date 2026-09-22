@@ -18,14 +18,26 @@ import { loadSigningKey, storeSigningKey } from './storage.js';
 
 export { updateGenerationProgress } from './progress.js';
 
-export function go(step) {
-  state.currentStep = step;
+const WORKFLOW_STEPS = ["templates", "editor", "data", "mapping", "preview", "generate"];
+
+function updateShell() {
+  const current = state.currentStep || "templates";
+  const currentIndex = WORKFLOW_STEPS.indexOf(current);
   document.querySelectorAll(".nav-item[data-step]").forEach(b => {
-    const active = b.dataset.step === step;
+    const index = WORKFLOW_STEPS.indexOf(b.dataset.step);
+    const active = b.dataset.step === current;
     b.classList.toggle("active", active);
+    b.classList.toggle("complete", index >= 0 && index < currentIndex);
     if (active) b.setAttribute("aria-current", "step");
     else b.removeAttribute("aria-current");
   });
+  const projectName = document.getElementById("topProjectName");
+  if (projectName) projectName.textContent = state.projectName || "Untitled Conference";
+}
+
+export function go(step) {
+  state.currentStep = step;
+  updateShell();
   renderStep();
 }
 
@@ -59,7 +71,18 @@ function renderTemplates(app) {
     <div class="filter-bar">
       ${cats.map(c => `<button class="btn ${_templateFilter === c ? 'primary' : 'ghost'}" data-cat="${escapeHTML(c)}" >${escapeHTML(c)}</button>`).join("")}
     </div>
-    <div class="grid template-grid">${filtered.map(t => `<article class="card template-card ${state.templateId === t.id ? 'active-template' : ''}" data-template="${escapeHTML(t.id)}" role="button" tabindex="0" aria-pressed="${state.templateId === t.id}" aria-label="Use template ${escapeHTML(t.name)}"><div class="template-thumb">${templateSVG(t.id)}</div><div class="template-info"><strong>${escapeHTML(t.name)}</strong><p>${escapeHTML(t.description)}</p><span class="tag">${escapeHTML(t.category)}</span></div></article>`).join("")}</div></div>`;
+    <div class="grid template-grid">${filtered.map(t => {
+      const selected = state.templateId === t.id;
+      const orientation = t.page?.orientation === "portrait" ? "Portrait" : "Landscape";
+      return `<article class="card template-card ${selected ? 'active-template' : ''}" data-template="${escapeHTML(t.id)}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="Use template ${escapeHTML(t.name)}">
+        <div class="template-thumb">${templateSVG(t.id)}${selected ? '<span class="template-selected" aria-hidden="true">✓</span>' : ''}</div>
+        <div class="template-info">
+          <strong>${escapeHTML(t.name)}</strong>
+          <div class="template-meta"><span>${escapeHTML(t.category)}</span><span>•</span><span>${orientation}</span></div>
+          <div class="template-use">Use template <span aria-hidden="true">→</span></div>
+        </div>
+      </article>`;
+    }).join("")}</div></div>`;
     
     app.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => { _templateFilter = b.dataset.cat; draw(); });
     const selectTemplate = (id) => {
@@ -79,24 +102,43 @@ function renderTemplates(app) {
   draw();
 }
 
+let _editorZoom = "fit";
+
+function applyEditorZoom() {
+  const canvas = document.getElementById("editorCanvas");
+  if (!canvas) return;
+  const pageWidth = getTemplate(state.templateId)?.page?.width || 1123;
+  canvas.style.maxWidth = _editorZoom === "100" ? "none" : "";
+  canvas.style.width = _editorZoom === "fit" ? "100%" : (_editorZoom === "75" ? "75%" : pageWidth + "px");
+  document.querySelectorAll("[data-zoom]").forEach(btn => btn.setAttribute("aria-pressed", String(btn.dataset.zoom === _editorZoom)));
+}
+
 function renderEditor(app) {
-  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">02 / DESIGN</div><h1>Design your certificate.</h1><p class="lead">Drag editable elements directly on the certificate, or use exact position controls.</p></div><div class="toolbar"><button class="btn" id="switchTemplate">Templates</button><button class="btn primary" id="toData">Continue</button></div></div>
+  app.innerHTML = `<div class="page editor-page"><div class="page-head"><div><div class="eyebrow">02 / DESIGN</div><h1>Design your certificate.</h1><p class="lead">Select an element to edit it. Drag on the canvas or use precise values in the inspector.</p></div><div class="toolbar"><button class="btn" id="switchTemplate">Templates</button><button class="btn primary" id="toData">Continue</button></div></div>
   <div class="editor-layout"><div class="editor-panel elements">
     <h3>Project</h3><div class="field"><label for="projectNameInput">Project name</label><input id="projectNameInput"></div>
-    <h3 style="margin-top:18px">Elements</h3>
-    <div class="toolbar compact"><button class="btn" id="addTextBtn">+ Text</button><button class="btn" id="addImageBtn">+ Logo / Signature</button><button class="btn" id="addQRBtn">+ QR Code</button></div>
+    <div class="panel-heading-row"><h3>Layers</h3><span id="layerCount"></span></div>
+    <div class="editor-insert-grid"><button class="btn" id="addTextBtn">+ Text</button><button class="btn" id="addImageBtn">+ Image</button><button class="btn" id="addQRBtn">+ QR</button></div>
     <input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" aria-label="Upload logo or signature image" hidden>
     <input id="fontFileInput" type="file" accept=".ttf,.otf,.woff,.woff2" aria-label="Upload custom font file" hidden>
-    <div id="elementList" class="element-list" style="margin-top:10px" aria-label="Element layers"></div>
-    <div class="toolbar compact" style="margin-top:10px"><button class="btn ghost" id="undoBtn" title="Ctrl+Z">&#8617; Undo</button><button class="btn ghost" id="redoBtn" title="Ctrl+Shift+Z">&#8618; Redo</button></div>
-    <div class="mini-help" style="margin:14px 4px">Tip: use variables such as <b>{{NAME}}</b>, <b>{{ROLE}}</b>, <b>{{EVENT}}</b>, and spreadsheet tokens such as <b>{{REGISTRATION_ID}}</b>. Drag elements or nudge with arrow keys.</div>
+    <div id="elementList" class="element-list" aria-label="Element layers"></div>
+    <div class="mini-help editor-tip">Drag elements on the canvas. Use arrow keys to nudge and Shift + arrow for fine movement.</div>
   </div>
-  <div class="canvas-stage"><div id="editorCanvas"></div></div><div class="editor-panel properties"><h3>Properties</h3><div id="properties"></div></div></div></div>`;
+  <div class="canvas-column">
+    <div class="canvas-toolbar">
+      <div class="canvas-toolbar-group"><button class="tool-btn" id="undoBtn" title="Undo (Ctrl+Z)">↶</button><button class="tool-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)">↷</button></div>
+      <div class="canvas-toolbar-title">Canvas</div>
+      <div class="canvas-toolbar-group zoom-group"><button class="tool-btn" data-zoom="fit" aria-pressed="true">Fit</button><button class="tool-btn" data-zoom="75" aria-pressed="false">75%</button><button class="tool-btn" data-zoom="100" aria-pressed="false">100%</button></div>
+    </div>
+    <div class="canvas-stage"><div id="editorCanvas"></div></div>
+  </div>
+  <div class="editor-panel properties"><div class="panel-heading-row"><h3>Inspector</h3><span>Selected element</span></div><div id="properties"></div></div></div></div>`;
   const project = document.getElementById("projectNameInput");
   project.value = state.projectName;
   project.onchange = () => {
     state.projectName = project.value.trim() || "Untitled Conference";
     markDirty();
+    updateShell();
   };
   document.getElementById("switchTemplate").onclick = () => go("templates");
   document.getElementById("toData").onclick = () => go("data");
@@ -109,20 +151,45 @@ function renderEditor(app) {
   fontInput.onchange = async () => { try { await loadCustomFont(fontInput.files[0]); } catch (e) { toast(e.message); } finally { fontInput.value = ""; } };
   document.getElementById("undoBtn").onclick = () => historyAction(undo, "Undo");
   document.getElementById("redoBtn").onclick = () => historyAction(redo, "Redo");
+  document.querySelectorAll("[data-zoom]").forEach(btn => btn.onclick = () => {
+    _editorZoom = btn.dataset.zoom;
+    applyEditorZoom();
+  });
+  const layerCount = document.getElementById("layerCount");
+  if (layerCount) layerCount.textContent = state.elements.length + " elements";
   renderCurrentEditor();
+  applyEditorZoom();
 }
 
 function renderData(app) {
   const v = validateRows();
-  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">03 / PARTICIPANTS</div><h1>Bring in your participant list.</h1><p class="lead">CSV works without an external library. XLS/XLSX uses the Excel parser loaded by the page.</p></div><button class="btn primary" id="toMapping" ${state.rows.length ? "" : "disabled"}>Continue</button></div>
-  <div class="card panel"><div id="dropzone" class="dropzone"><strong>Drop your Excel or CSV file here</strong><p>or choose a file from your device</p><button class="btn" id="chooseFile">Choose file</button><input id="dataFile" type="file" accept=".xlsx,.xls,.csv,.tsv" aria-label="Choose participant spreadsheet" hidden></div></div>
-  ${state.rows.length ? `<div class="section-gap"></div><div class="metric-grid"><div class="metric"><strong>${v.total}</strong><span>PARTICIPANTS</span></div><div class="metric"><strong>${v.valid}</strong><span>VALID NAMES</span></div><div class="metric"><strong>${v.duplicateNames}</strong><span>DUPLICATE NAMES</span></div></div><div class="section-gap"></div><div class="card panel"><h2>Data preview</h2><div class="table-wrap">${tableHTML(state.rows.slice(0, 10))}</div></div>` : ""}</div>`;
-  const dz = document.getElementById("dropzone"), input = document.getElementById("dataFile"), choose = document.getElementById("chooseFile"), next = document.getElementById("toMapping");
+  const meta = state.importMeta || {};
+  const fileSize = meta.size ? (meta.size < 1024 * 1024 ? Math.max(1, Math.round(meta.size / 1024)) + " KB" : (meta.size / (1024 * 1024)).toFixed(1) + " MB") : "";
+  const imported = state.rows.length ? `<div class="card import-summary">
+    <div class="import-icon" aria-hidden="true">✓</div>
+    <div class="import-summary-copy">
+      <strong>${escapeHTML(meta.fileName || "Participant data loaded")}</strong>
+      <span>${v.total} rows · ${state.columns.length} columns${meta.sheetName ? ` · Sheet: ${escapeHTML(meta.sheetName)}` : ""}${fileSize ? ` · ${fileSize}` : ""}</span>
+    </div>
+    <button class="btn" id="chooseFile">Replace file</button>
+    <input id="dataFile" type="file" accept=".xlsx,.xls,.csv,.tsv" aria-label="Choose participant spreadsheet" hidden>
+  </div>` : `<div class="card panel"><div id="dropzone" class="dropzone"><strong>Drop your Excel or CSV file here</strong><p>XLSX, XLS, CSV, or TSV. Processing stays in this browser.</p><button class="btn" id="chooseFile">Choose file</button><input id="dataFile" type="file" accept=".xlsx,.xls,.csv,.tsv" aria-label="Choose participant spreadsheet" hidden></div></div>`;
+
+  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">03 / PARTICIPANTS</div><h1>Import participant data.</h1><p class="lead">Use a spreadsheet as the source for names, roles, institutions, and any custom certificate fields.</p></div><button class="btn primary" id="toMapping" ${state.rows.length ? "" : "disabled"}>Continue</button></div>
+  ${imported}
+  ${state.rows.length ? `<div class="section-gap"></div><div class="metric-grid"><div class="metric"><strong>${v.total}</strong><span>Participants</span></div><div class="metric"><strong>${v.valid}</strong><span>Valid names</span></div><div class="metric"><strong>${v.duplicateNames}</strong><span>Duplicate names</span></div></div><div class="section-gap"></div><div class="card panel"><div class="panel-title-row"><h2>Data preview</h2><span>First ${Math.min(10, state.rows.length)} rows</span></div><div class="table-wrap">${tableHTML(state.rows.slice(0, 10))}</div></div>` : ""}</div>`;
+
+  const dz = document.getElementById("dropzone");
+  const input = document.getElementById("dataFile");
+  const choose = document.getElementById("chooseFile");
+  const next = document.getElementById("toMapping");
   choose.onclick = () => input.click();
   input.onchange = () => input.files[0] && handleDataFile(input.files[0]);
-  dz.ondragover = e => { e.preventDefault(); dz.classList.add("drag"); };
-  dz.ondragleave = () => dz.classList.remove("drag");
-  dz.ondrop = e => { e.preventDefault(); dz.classList.remove("drag"); if (e.dataTransfer.files[0]) handleDataFile(e.dataTransfer.files[0]); };
+  if (dz) {
+    dz.ondragover = e => { e.preventDefault(); dz.classList.add("drag"); };
+    dz.ondragleave = () => dz.classList.remove("drag");
+    dz.ondrop = e => { e.preventDefault(); dz.classList.remove("drag"); if (e.dataTransfer.files[0]) handleDataFile(e.dataTransfer.files[0]); };
+  }
   if (next) next.onclick = () => go("mapping");
 }
 
@@ -143,13 +210,35 @@ function renderMapping(app) {
   const customTokens = state.columns.map(c => `<code>{{${escapeHTML(columnToken(c))}}}</code>`).join(" ");
   const gf = state.globalFields;
   const idSafe = v => `map-${v.replace(/[^A-Z0-9_]/g, "")}`;
-  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">04 / MAPPING</div><h1>Map your spreadsheet.</h1><p class="lead">Participant columns override conference-wide details only when the cell has a value.</p></div><button class="btn primary" id="toPreview">Continue</button></div>
-  <div class="card panel"><h2>Conference-wide details</h2><div class="form-grid"><div class="field"><label for="global-EVENT">Event</label><input id="global-EVENT" data-global="EVENT" value="${escapeHTML(gf.EVENT || "")}"></div><div class="field"><label for="global-DATE">Date</label><input id="global-DATE" data-global="DATE" value="${escapeHTML(gf.DATE || "")}"></div><div class="field"><label for="global-VENUE">Venue</label><input id="global-VENUE" data-global="VENUE" value="${escapeHTML(gf.VENUE || "")}"></div><div class="field"><label for="global-ORGANIZATION">Organization</label><input id="global-ORGANIZATION" data-global="ORGANIZATION" value="${escapeHTML(gf.ORGANIZATION || "")}"></div></div></div>
-  <div class="section-gap"></div><div class="card panel"><h2>Column mapping</h2><div class="mapping-grid">${variableKeys.filter(v => !["CERTIFICATE_ID", "YEAR", "VERIFY_URL", "VERIFY_SIG"].includes(v)).map(v => `<div class="map-card ${v === "NAME" ? "required-map" : ""}"><strong><label for="${idSafe(v)}">{{${v}}}${v === "NAME" ? ' <span class="required">required</span>' : ""}</label></strong><div class="arrow" aria-hidden="true">↓</div><select id="${idSafe(v)}" data-map="${v}" ${v === "NAME" ? "aria-required='true'" : ""}><option value="">${["EVENT", "DATE", "VENUE", "ORGANIZATION"].includes(v) ? "Use conference-wide value" : "Not mapped"}</option>${options}</select></div>`).join("")}</div><div class="notice" style="margin-top:14px"><b>Direct spreadsheet variables:</b> every column is also available as a token. ${customTokens}</div></div></div>`;
+  const fallbackVars = new Set(["EVENT", "DATE", "VENUE", "ORGANIZATION"]);
+  const mappedVars = variableKeys.filter(v => !["CERTIFICATE_ID", "YEAR", "VERIFY_URL", "VERIFY_SIG"].includes(v));
+
+  const sourceLabel = (variable) => {
+    if (state.mappings[variable]) return "Spreadsheet";
+    return fallbackVars.has(variable) ? "Event settings" : "Not mapped";
+  };
+
+  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">04 / MAPPING</div><h1>Map your spreadsheet.</h1><p class="lead">Connect certificate fields to participant columns. Event-level values remain the fallback where applicable.</p></div><button class="btn primary" id="toPreview">Continue</button></div>
+  <div class="card panel"><h2>Event settings</h2><div class="form-grid"><div class="field"><label for="global-EVENT">Event</label><input id="global-EVENT" data-global="EVENT" value="${escapeHTML(gf.EVENT || "")}"></div><div class="field"><label for="global-DATE">Date</label><input id="global-DATE" data-global="DATE" value="${escapeHTML(gf.DATE || "")}"></div><div class="field"><label for="global-VENUE">Venue</label><input id="global-VENUE" data-global="VENUE" value="${escapeHTML(gf.VENUE || "")}"></div><div class="field"><label for="global-ORGANIZATION">Organization</label><input id="global-ORGANIZATION" data-global="ORGANIZATION" value="${escapeHTML(gf.ORGANIZATION || "")}"></div></div></div>
+  <div class="section-gap"></div>
+  <div class="card mapping-panel">
+    <div class="mapping-head"><div><h2>Column mapping</h2><p>Only Name is required. Leave optional fields unmapped unless a template uses them.</p></div><span>${state.columns.length} spreadsheet columns detected</span></div>
+    <div class="mapping-table-wrap"><table class="mapping-table"><thead><tr><th>Certificate field</th><th>Spreadsheet column</th><th>Source</th></tr></thead><tbody>
+      ${mappedVars.map(v => `<tr class="${v === "NAME" ? "mapping-required" : ""}">
+        <td><label for="${idSafe(v)}"><strong>{{${v}}}</strong>${v === "NAME" ? '<span class="required">Required</span>' : ""}</label></td>
+        <td><select id="${idSafe(v)}" data-map="${v}" ${v === "NAME" ? "aria-required='true'" : ""}><option value="">${fallbackVars.has(v) ? "Use event setting" : "Not mapped"}</option>${options}</select></td>
+        <td><span class="source-badge" data-source="${v}">${sourceLabel(v)}</span></td>
+      </tr>`).join("")}
+    </tbody></table></div>
+    <div class="notice mapping-token-note"><b>Direct spreadsheet variables:</b> every imported column is also available as a token. ${customTokens}</div>
+  </div></div>`;
+
   app.querySelectorAll("[data-map]").forEach(s => {
     s.value = state.mappings[s.dataset.map] || "";
     s.onchange = () => {
       state.mappings[s.dataset.map] = s.value;
+      const badge = app.querySelector(`[data-source="${s.dataset.map}"]`);
+      if (badge) badge.textContent = s.value ? "Spreadsheet" : (fallbackVars.has(s.dataset.map) ? "Event settings" : "Not mapped");
       markDirty();
     };
   });
@@ -163,7 +252,10 @@ function renderMapping(app) {
       }
     }
   });
-  document.getElementById("toPreview").onclick = () => { if (!state.mappings.NAME) { toast("Map a spreadsheet column to {{NAME}} first."); return; } go("preview"); };
+  document.getElementById("toPreview").onclick = () => {
+    if (!state.mappings.NAME) { toast("Map a spreadsheet column to {{NAME}} first."); return; }
+    go("preview");
+  };
 }
 
 function renderPreview(app) {
@@ -174,20 +266,27 @@ function renderPreview(app) {
   if (!rows.length) { toast("No valid participant names are available for preview."); go("mapping"); return; }
   state.sampleIndex = Math.max(0, Math.min(rows.length - 1, state.sampleIndex));
 
-  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">05 / PREVIEW</div><h1>Check the result.</h1><p class="lead">This is the exact artwork and numbering the batch will produce.</p></div><div class="toolbar"><button class="btn" id="prev">Previous</button><button class="btn" id="next">Next</button><button class="btn primary" id="toGenerate">Generate</button></div></div>
-  <div class="card panel"><div class="preview-stage"><div id="previewSheet" class="preview-sheet"></div></div><div id="previewCounter" style="margin-top:15px;font-size:12px;color:var(--muted)" aria-live="polite"></div></div></div>`;
+  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">05 / PREVIEW</div><h1>Preview the final certificates.</h1><p class="lead">This uses the same artwork, variables, and numbering as the generated PDF batch.</p></div><button class="btn primary" id="toGenerate">Generate</button></div>
+  <div class="preview-toolbar card">
+    <div class="preview-picker"><label for="previewSelect">Recipient</label><select id="previewSelect">${rows.map((row, i) => `<option value="${i}">${escapeHTML(String(row.NAME || `Certificate ${i + 1}`))}</option>`).join("")}</select></div>
+    <div class="preview-nav"><button class="btn" id="prev">Previous</button><span id="previewCounter" aria-live="polite"></span><button class="btn" id="next">Next</button></div>
+  </div>
+  <div class="section-gap"></div><div class="card preview-card"><div class="preview-stage"><div id="previewSheet" class="preview-sheet"></div></div></div></div>`;
 
   const sheet = document.getElementById("previewSheet");
   const counter = document.getElementById("previewCounter");
+  const select = document.getElementById("previewSelect");
   const prevBtn = document.getElementById("prev");
   const nextBtn = document.getElementById("next");
   const show = () => {
     const i = state.sampleIndex;
     sheet.innerHTML = renderCertificateSVG(rows[i], i);
-    counter.textContent = `Certificate ${i + 1} of ${rows.length}`;
+    counter.textContent = `${i + 1} / ${rows.length}`;
+    select.value = String(i);
     prevBtn.disabled = i <= 0;
     nextBtn.disabled = i >= rows.length - 1;
   };
+  select.onchange = () => { state.sampleIndex = Math.max(0, Math.min(rows.length - 1, Number(select.value) || 0)); show(); };
   prevBtn.onclick = () => { state.sampleIndex = Math.max(0, state.sampleIndex - 1); show(); };
   nextBtn.onclick = () => { state.sampleIndex = Math.min(rows.length - 1, state.sampleIndex + 1); show(); };
   document.getElementById("toGenerate").onclick = () => go("generate");
@@ -200,38 +299,60 @@ function renderGenerate(app) {
   const val = validateRows();
   const batchCount = generationRows().length;
   if (state.settings.verifySecret === LEGACY_VERIFY_SALT) toast("Signing secret is the publicly known legacy default — click Randomize to make signatures private again.");
-  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">06 / GENERATE</div><h1>Generate your certificate batch.</h1><p class="lead">Rows without a participant name are skipped. Duplicate filenames are automatically suffixed.</p></div></div>
-  <div class="generate-grid"><div class="card panel"><h2>Certificate numbering</h2>
-    <div class="form-grid">
-      <div class="field">
-        <div style="display:flex;justify-content:space-between;align-items:center"><label for="prefix">Prefix</label><button type="button" id="derivePrefixBtn" style="font-size:11px;font-weight:700;background:none;border:none;color:var(--accent2);cursor:pointer;padding:0">⚡ From Event</button></div>
-        <input id="prefix" maxlength="12">
+  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">06 / GENERATE</div><h1>Generate your certificate batch.</h1><p class="lead">Review output settings, signing, and the final batch count before creating PDFs.</p></div></div>
+  <div class="generate-grid">
+    <div class="card panel">
+      <div class="panel-title-row"><h2>Output settings</h2><span>PDF & filenames</span></div>
+      <div class="form-grid">
+        <div class="field">
+          <div class="field-label-row"><label for="prefix">Prefix</label><button type="button" class="inline-action" id="derivePrefixBtn">From event</button></div>
+          <input id="prefix" maxlength="12">
+        </div>
+        <div class="field"><label for="year">Year</label><input id="year" maxlength="8" inputmode="numeric"></div>
+        <div class="field"><label for="start">Starting number</label><input id="start" type="number" min="0" step="1"></div>
+        <div class="field"><label for="digits">Digits</label><input id="digits" type="number" min="1" max="8"></div>
       </div>
-      <div class="field"><label for="year">Year</label><input id="year" maxlength="8" inputmode="numeric"></div>
-      <div class="field"><label for="start">Starting number</label><input id="start" type="number" min="0" step="1"></div>
-      <div class="field"><label for="digits">Digits</label><input id="digits" type="number" min="1" max="8"></div>
+      <div class="id-preview"><span>Sample certificate ID</span><strong id="sampleIdText"></strong></div>
+      <div class="field"><label for="filename">Filename pattern</label><input id="filename" maxlength="200"><p class="mini-help">Example: {{CERTIFICATE_ID}}_{{NAME}}.pdf</p></div>
+      <div class="field"><label for="rasterScale">PDF quality</label><select id="rasterScale"><option value="1">Standard</option><option value="2">High (recommended)</option><option value="3">Very high</option></select></div>
     </div>
-    <p class="mini-help" style="margin-top:9px">Sample ID: <strong id="sampleIdText" style="color:var(--ink)"></strong></p>
-    <div class="field" style="margin-top:14px"><label for="filename">Filename pattern</label><input id="filename" maxlength="200"></div>
-    <div class="field" style="margin-top:14px"><label for="rasterScale">PDF quality</label><select id="rasterScale"><option value="1">Standard</option><option value="2">High (recommended)</option><option value="3">Very high</option></select></div>
-    <div class="field" style="margin-top:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center"><label for="verifySecret">Verification signing secret</label><button type="button" id="randomSecretBtn" style="font-size:11px;font-weight:700;background:none;border:none;color:var(--accent2);cursor:pointer;padding:0">⚡ Randomize</button></div>
-      <input id="verifySecret" type="password" autocomplete="off" spellcheck="false" placeholder="Private secret key for SHA-256 signatures">
-      <p class="mini-help" style="margin-top:6px">Keeps signatures unforgeable. It never leaves this device, but it lives in autosave and exported project files — treat those like credentials. Publish the exported registry next to verify.html so scans confirm against it.</p>
-    </div>
-    <div class="field" style="margin-top:14px">
-      <label>ECDSA P-256 signing key</label>
-      <div id="ecdsaStatus" class="mini-help" style="margin-top:6px">Checking…</div>
-      <div style="display:flex;gap:6px;margin-top:8px">
-        <button type="button" class="btn" id="exportKeyBtn" style="display:none">Export Key Backup</button>
-        <button type="button" class="btn" id="importKeyBtn">Import Key</button>
+
+    <div class="card panel batch-summary-card">
+      <div class="panel-title-row"><h2>Batch summary</h2><span>Ready to export</span></div>
+      <div class="metric-grid"><div class="metric"><strong>${batchCount}</strong><span>PDF files</span></div><div class="metric"><strong>${val.missingName}</strong><span>Rows skipped</span></div><div class="metric"><strong>${val.duplicateNames}</strong><span>Duplicate names</span></div></div>
+      <div class="generate-cta">
+        <button class="btn primary" id="generateBtn">Generate ${batchCount} certificates</button>
+        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progressBar"></div></div>
+        <div id="progressText" class="mini-help" aria-live="polite">Ready to generate ${batchCount} certificates.</div>
       </div>
-      <input type="file" id="keyFileInput" accept=".json,application/json" hidden>
-      <p class="mini-help" style="margin-top:6px">When active, certificates are signed with ECDSA P-256 — the portal verifies using only the published public key. Back up your key to issue from other devices.</p>
     </div>
-    <p class="mini-help" style="margin-top:9px">Example: {{CERTIFICATE_ID}}_{{NAME}}.pdf</p>
   </div>
-  <div class="card panel"><h2>Batch summary</h2><div class="metric-grid"><div class="metric"><strong>${batchCount}</strong><span>PDF FILES</span></div><div class="metric"><strong>${val.missingName}</strong><span>ROWS SKIPPED</span></div><div class="metric"><strong>${val.duplicateNames}</strong><span>DUPLICATE NAMES</span></div></div><div class="section-gap"></div><button class="btn primary" id="generateBtn" style="width:100%;padding:13px">GENERATE ALL CERTIFICATES</button><div class="section-gap"></div><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progressBar"></div></div><div id="progressText" class="mini-help" style="margin-top:8px" aria-live="polite">Ready to generate ${batchCount} certificates.</div></div></div>
+
+  <div class="section-gap"></div>
+  <div class="card panel signing-card">
+    <div class="panel-title-row"><div><h2>Verification & signing</h2><p class="mini-help">Security settings are separate from PDF output. Keep signing material private.</p></div><span>Advanced</span></div>
+    <div class="signing-grid">
+      <div class="signing-block">
+        <div class="field">
+          <div class="field-label-row"><label for="verifySecret">Verification signing secret</label><button type="button" class="inline-action" id="randomSecretBtn">Randomize</button></div>
+          <input id="verifySecret" type="password" autocomplete="off" spellcheck="false" placeholder="Private secret key for SHA-256 signatures">
+          <p class="mini-help">Stored in local autosave and exported project files. Treat project backups containing this secret as credentials.</p>
+        </div>
+      </div>
+      <div class="signing-block">
+        <div class="field">
+          <label>ECDSA P-256 signing key</label>
+          <div id="ecdsaStatus" class="mini-help">Checking…</div>
+          <div class="page-actions signing-actions">
+            <button type="button" class="btn" id="exportKeyBtn" style="display:none">Export key backup</button>
+            <button type="button" class="btn" id="importKeyBtn">Import key</button>
+          </div>
+          <input type="file" id="keyFileInput" accept=".json,application/json" hidden>
+          <p class="mini-help">When active, the portal verifies signatures with the published public key only.</p>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="section-gap"></div><div id="resultCard"></div></div>`;
 
   const refs = { prefix: document.getElementById("prefix"), year: document.getElementById("year"), start: document.getElementById("start"), digits: document.getElementById("digits"), filename: document.getElementById("filename"), rasterScale: document.getElementById("rasterScale"), verifySecret: document.getElementById("verifySecret") };

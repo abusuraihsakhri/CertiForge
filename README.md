@@ -61,13 +61,16 @@ Create a certificate once, connect it to an Excel or CSV file, generate individu
 - Layer ordering
 - Element duplication and deletion
 - Undo and redo
+- Fit, 75%, and 100% canvas view controls
+- Structured Layers and contextual Inspector panels
 
 ### 📊 Spreadsheet Automation
 
-- XLSX, XLS, and CSV import
+- XLSX, XLS, CSV, and TSV import
 - Automatic column mapping
-- Manual mapping when required
-- Participant preview before generation
+- Compact manual mapping table when overrides are required
+- Participant import summary and data preview
+- Direct recipient selection during certificate preview
 - Event-wide fields for shared data such as date, venue, and organization
 - Arbitrary spreadsheet columns available as certificate variables
 - Missing-name rows skipped automatically
@@ -162,15 +165,7 @@ Verification QR codes can be added directly to certificate designs using:
 {{VERIFY_URL}}
 ```
 
-Generated verification records can include:
-
-- Certificate ID
-- Recipient name
-- Event
-- Role
-- Date
-- Issuing organization
-- Verification digest
+Current verification links are designed to minimize exposed participant data. The public verification registry contains certificate IDs and cryptographic verification values rather than participant names.
 
 Scanning the QR code opens the CertiForge verification portal.
 
@@ -180,17 +175,21 @@ The included verification portal supports:
 
 - **QR verification** from a generated certificate
 - **Certificate ID lookup**
-- **Verification registry lookup**
 - Loading an exported `verification-registry.json` locally
 - Optional loading of a published registry from the same site
+- Privacy-safe registry schemas that avoid publishing participant names
+- Legacy verification links and registries for backward compatibility
 
-After certificate generation, CertiForge can export a verification registry alongside the certificate batch.
+A manually typed certificate ID confirms only that a record exists. Cryptographic confirmation requires the QR verification data and the corresponding registry.
 
-### 🔐 Integrity Check
+### 🔐 Signing and Integrity
 
-CertiForge currently generates a SHA-256-derived verification digest from certificate data such as the certificate ID, recipient, event, date, and organization.
+CertiForge supports two verification modes:
 
-> **Security scope:** the current implementation provides tamper-evident verification within the CertiForge workflow. It should not be interpreted as PKI-backed digital signing or independent proof of issuer identity. Stronger asymmetric issuer authentication is a future security improvement.
+- **ECDSA P-256 signing:** the browser creates or imports an issuer signing key, signs the canonical certificate payload, and exports the public key in the verification registry. The verification portal checks the signature using that public key.
+- **Keyed SHA-256 verification:** a private project signing secret produces a keyed digest that is matched against the exported registry. The secret is never placed in the public verification page or QR link.
+
+The public registry exports certificate IDs and signatures/digests (plus payload hashes where applicable), while participant fields remain local to the certificate-generation workflow. Private signing keys and project secrets should be backed up and handled as credentials.
 
 ---
 
@@ -210,9 +209,9 @@ The following operations happen locally in the browser:
 
 ### Verification privacy
 
-Public verification is separate from local certificate generation. If a verification URL or registry is published, the selected certificate metadata contained in that URL or registry may become accessible to the hosting infrastructure or public users.
+Current CertiForge registries are privacy-safe by construction: published certificate entries contain the certificate ID and verification material rather than participant names, roles, dates, or filenames. ECDSA registries also publish the issuer public key, which is intended to be public.
 
-Organizations should therefore choose carefully which fields are included in public verification records.
+Legacy registries may contain plaintext certificate fields, so organizations should review older exported files before publishing them.
 
 ---
 
@@ -256,9 +255,7 @@ The complete primary workflow is functional:
 - Large-batch performance improvements
 - Improved PDF/font fidelity
 - Accessibility improvements
-- Automated browser testing
-- Stronger issuer authentication
-- Asymmetric digital signatures
+- Permanent cross-browser regression coverage
 - Certificate revocation and lifecycle workflows
 
 ---

@@ -171,15 +171,30 @@ export function renderProperties() {
 
   if (e.type === "text") {
     box.innerHTML = `<div class="element-properties">
-      <div class="field"><label for="propText">Text</label><textarea id="propText" rows="4"></textarea></div>
-      <div class="field"><label for="propFont">Font</label><select id="propFont">${fontSelect}<option value="__upload__">+ Upload custom font...</option></select></div>
-      <div class="prop-row"><div class="field"><label for="propSize">Size</label><input id="propSize" type="number" min="6" max="200"></div><div class="field"><label for="propWeight">Weight</label><select id="propWeight">${weightOptions(e.weight)}</select></div></div>
-      <div class="prop-row"><div class="field"><label for="propAlign">Align</label><select id="propAlign"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div><div class="field"><label for="propLineHeight">Line height</label><input id="propLineHeight" type="number" min="0.8" max="4" step="0.05"></div></div>
-      <div class="field"><label for="propColor">Color</label><input id="propColor" class="color-input" type="color"></div>
-      <div class="prop-row"><div class="field"><label for="propX">X</label><input id="propX" type="number"></div><div class="field"><label for="propY">Y</label><input id="propY" type="number"></div></div>
-      <div class="field"><label for="propW">Width</label><input id="propW" type="number"></div>
-      <p class="mini-help">Text wraps inside its width; X/Y mark the box center. What you see is what prints.</p>
-      <div class="toolbar"><button class="btn" id="duplicateEl">Duplicate</button><button class="btn danger" id="deleteEl">Delete</button></div>
+      <details class="inspector-section" open>
+        <summary>Content</summary>
+        <div class="inspector-section-body">
+          <div class="field"><label for="propText">Text</label><textarea id="propText" rows="4"></textarea></div>
+          <div class="field"><label for="propFont">Font</label><select id="propFont">${fontSelect}<option value="__upload__">+ Upload custom font...</option></select></div>
+        </div>
+      </details>
+      <details class="inspector-section" open>
+        <summary>Typography</summary>
+        <div class="inspector-section-body">
+          <div class="prop-row"><div class="field"><label for="propSize">Size</label><input id="propSize" type="number" min="6" max="200"></div><div class="field"><label for="propWeight">Weight</label><select id="propWeight">${weightOptions(e.weight)}</select></div></div>
+          <div class="prop-row"><div class="field"><label for="propAlign">Align</label><select id="propAlign"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div><div class="field"><label for="propLineHeight">Line height</label><input id="propLineHeight" type="number" min="0.8" max="4" step="0.05"></div></div>
+          <div class="field"><label for="propColor">Color</label><input id="propColor" class="color-input" type="color"></div>
+        </div>
+      </details>
+      <details class="inspector-section" open>
+        <summary>Position</summary>
+        <div class="inspector-section-body">
+          <div class="prop-row"><div class="field"><label for="propX">X</label><input id="propX" type="number"></div><div class="field"><label for="propY">Y</label><input id="propY" type="number"></div></div>
+          <div class="field"><label for="propW">Width</label><input id="propW" type="number"></div>
+          <p class="mini-help">X/Y mark the element center; text wraps inside its width.</p>
+        </div>
+      </details>
+      <div class="inspector-actions"><button class="btn" id="duplicateEl">Duplicate</button><button class="btn danger" id="deleteEl">Delete</button></div>
     </div>`;
 
     const ids = { text: "propText", font: "propFont", size: "propSize", weight: "propWeight", color: "propColor", x: "propX", y: "propY", w: "propW", align: "propAlign", lineHeight: "propLineHeight" };
@@ -221,11 +236,9 @@ export function renderProperties() {
     });
   } else if (e.type === "image") {
     box.innerHTML = `<div class="element-properties">
-      <div class="notice">${escapeHTML(e.name || "Image")}</div>
-      <div class="prop-row"><div class="field"><label for="propX">X</label><input id="propX" type="number" value="${e.x}"></div><div class="field"><label for="propY">Y</label><input id="propY" type="number" value="${e.y}"></div></div>
-      <div class="prop-row"><div class="field"><label for="propW">Width</label><input id="propW" type="number" value="${e.w}"></div><div class="field"><label for="propH">Height</label><input id="propH" type="number" value="${e.h}"></div></div>
-      <div class="field"><label for="propOpacity">Opacity</label><input id="propOpacity" type="range" min="0.1" max="1" step="0.05" value="${e.opacity ?? 1}"></div>
-      <div class="toolbar"><button class="btn" id="duplicateEl">Duplicate</button><button class="btn danger" id="deleteEl">Delete</button></div>
+      <details class="inspector-section" open><summary>Image</summary><div class="inspector-section-body"><div class="notice">${escapeHTML(e.name || "Image")}</div><div class="field"><label for="propOpacity">Opacity</label><input id="propOpacity" type="range" min="0.1" max="1" step="0.05" value="${e.opacity ?? 1}"></div></div></details>
+      <details class="inspector-section" open><summary>Position</summary><div class="inspector-section-body"><div class="prop-row"><div class="field"><label for="propX">X</label><input id="propX" type="number" value="${e.x}"></div><div class="field"><label for="propY">Y</label><input id="propY" type="number" value="${e.y}"></div></div><div class="prop-row"><div class="field"><label for="propW">Width</label><input id="propW" type="number" value="${e.w}"></div><div class="field"><label for="propH">Height</label><input id="propH" type="number" value="${e.h}"></div></div></div></details>
+      <div class="inspector-actions"><button class="btn" id="duplicateEl">Duplicate</button><button class="btn danger" id="deleteEl">Delete</button></div>
     </div>`;
 
     const { maxX, maxY } = pageBounds();
@@ -242,12 +255,9 @@ export function renderProperties() {
     bindApply(["propX", "propY", "propW", "propH", "propOpacity"], apply);
   } else if (e.type === "qr") {
     box.innerHTML = `<div class="element-properties">
-      <div class="field"><label for="propQrText">QR content / URL</label><textarea id="propQrText" rows="3"></textarea>
-        <p class="mini-help" style="margin-top:3px">Use <code>{{VERIFY_URL}}</code> for the verification link, or a custom URL with <code>{{CERTIFICATE_ID}}</code>.</p>
-      </div>
-      <div class="prop-row"><div class="field"><label for="propX">X</label><input id="propX" type="number" value="${e.x}"></div><div class="field"><label for="propY">Y</label><input id="propY" type="number" value="${e.y}"></div></div>
-      <div class="prop-row"><div class="field"><label for="propW">Size</label><input id="propW" type="number" min="30" max="300" value="${e.w || 80}"></div><div class="field"><label for="propColor">Color</label><input id="propColor" class="color-input" type="color" value="${e.color || '#000000'}"></div></div>
-      <div class="toolbar"><button class="btn" id="duplicateEl">Duplicate</button><button class="btn danger" id="deleteEl">Delete</button></div>
+      <details class="inspector-section" open><summary>Content</summary><div class="inspector-section-body"><div class="field"><label for="propQrText">QR content / URL</label><textarea id="propQrText" rows="3"></textarea><p class="mini-help">Use <code>{{VERIFY_URL}}</code> for certificate verification, or a custom URL with <code>{{CERTIFICATE_ID}}</code>.</p></div></div></details>
+      <details class="inspector-section" open><summary>Appearance & position</summary><div class="inspector-section-body"><div class="prop-row"><div class="field"><label for="propX">X</label><input id="propX" type="number" value="${e.x}"></div><div class="field"><label for="propY">Y</label><input id="propY" type="number" value="${e.y}"></div></div><div class="prop-row"><div class="field"><label for="propW">Size</label><input id="propW" type="number" min="30" max="300" value="${e.w || 80}"></div><div class="field"><label for="propColor">Color</label><input id="propColor" class="color-input" type="color" value="${e.color || '#000000'}"></div></div></div></details>
+      <div class="inspector-actions"><button class="btn" id="duplicateEl">Duplicate</button><button class="btn danger" id="deleteEl">Delete</button></div>
     </div>`;
     const qrText = document.getElementById("propQrText");
     if (qrText) qrText.value = e.text;
