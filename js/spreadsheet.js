@@ -93,6 +93,12 @@ export async function parseSpreadsheet(file) {
   state.rows = rows;
   state.columns = columnUnion(rows);
   state.sampleIndex = 0;
+  state.importMeta = {
+    fileName: file.name,
+    size: Number(file.size || 0),
+    totalSheets: sheetInfo.totalSheets || 1,
+    sheetName: sheetInfo.sheetName || ""
+  };
   autoMap();
   return sheetInfo;
 }
