@@ -18,14 +18,26 @@ import { loadSigningKey, storeSigningKey } from './storage.js';
 
 export { updateGenerationProgress } from './progress.js';
 
-export function go(step) {
-  state.currentStep = step;
+const WORKFLOW_STEPS = ["templates", "editor", "data", "mapping", "preview", "generate"];
+
+function updateShell() {
+  const current = state.currentStep || "templates";
+  const currentIndex = WORKFLOW_STEPS.indexOf(current);
   document.querySelectorAll(".nav-item[data-step]").forEach(b => {
-    const active = b.dataset.step === step;
+    const index = WORKFLOW_STEPS.indexOf(b.dataset.step);
+    const active = b.dataset.step === current;
     b.classList.toggle("active", active);
+    b.classList.toggle("complete", index >= 0 && index < currentIndex);
     if (active) b.setAttribute("aria-current", "step");
     else b.removeAttribute("aria-current");
   });
+  const projectName = document.getElementById("topProjectName");
+  if (projectName) projectName.textContent = state.projectName || "Untitled Conference";
+}
+
+export function go(step) {
+  state.currentStep = step;
+  updateShell();
   renderStep();
 }
 
@@ -97,6 +109,7 @@ function renderEditor(app) {
   project.onchange = () => {
     state.projectName = project.value.trim() || "Untitled Conference";
     markDirty();
+    updateShell();
   };
   document.getElementById("switchTemplate").onclick = () => go("templates");
   document.getElementById("toData").onclick = () => go("data");
