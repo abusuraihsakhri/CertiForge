@@ -204,28 +204,39 @@ p.lead{margin:4px 0 0;max-width:740px;color:var(--muted);font-size:12px;line-hei
 /* TEMPLATE GALLERY */
 .filter-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:13px}
 .filter-bar .btn{min-height:30px;padding:6px 10px;border-radius:999px;font-size:10.5px}
-.template-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.template-grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
 .template-card{
   overflow:hidden;cursor:pointer;
   transition:transform .16s,border-color .16s,box-shadow .16s;
 }
-.template-card:hover{transform:translateY(-2px);border-color:#c7c9f6;box-shadow:var(--shadow-md)}
+.template-card:hover{transform:translateY(-2px);border-color:#b9b7f4;box-shadow:var(--shadow-md)}
 .template-card.active-template{border-color:#817cf3;box-shadow:0 0 0 2px rgba(79,70,229,.12)}
 .template-thumb{
+  position:relative;
   aspect-ratio:1.414/1;
   display:grid;place-items:center;
-  padding:11px;background:#f4f5f8;
+  padding:14px;background:#f2f4f7;
 }
 .template-thumb svg{
   display:block;width:100%;height:100%;
-  border-radius:3px;box-shadow:0 6px 16px rgba(16,24,40,.13);
+  border-radius:3px;box-shadow:0 8px 20px rgba(16,24,40,.14);
 }
-.template-info{padding:11px 12px 12px}
-.template-info strong{display:block;color:#202939;font-size:12.5px;line-height:1.3}
-.template-info p{
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  min-height:30px;margin:4px 0 8px;color:var(--muted);font-size:10.5px;line-height:1.4;
+.template-selected{
+  position:absolute;top:10px;right:10px;
+  width:26px;height:26px;display:grid;place-items:center;
+  border-radius:50%;background:var(--brand);color:#fff;
+  box-shadow:0 4px 12px rgba(79,70,229,.28);
+  font-size:12px;font-weight:800;
 }
+.template-info{padding:12px 13px 13px}
+.template-info strong{display:block;color:#202939;font-size:13px;line-height:1.3}
+.template-meta{display:flex;align-items:center;gap:5px;margin-top:5px;color:var(--muted);font-size:9.5px}
+.template-use{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-top:10px;padding-top:9px;border-top:1px solid #eef0f3;
+  color:var(--brand);font-size:10.5px;font-weight:700;
+}
+.template-use span{font-size:14px}
 .tag{
   display:inline-flex;align-items:center;
   min-height:21px;padding:3px 7px;border-radius:999px;
