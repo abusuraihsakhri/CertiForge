@@ -6,8 +6,44 @@ import { undo, redo } from './history.js';
 import { toast } from './utils.js';
 import { startAutosave, restoreAutosave, clearAutosave } from './storage.js';
 import { sanitizeProjectState } from './security.js';
+import { initTheme, bindThemeToggle } from './theme.js';
+
+function setMobileMenu(open) {
+  const sidebar = document.getElementById("appSidebar");
+  const backdrop = document.getElementById("sidebarBackdrop");
+  const trigger = document.getElementById("mobileMenuBtn");
+  if (!sidebar || !backdrop || !trigger) return;
+  const shouldOpen = Boolean(open);
+  sidebar.classList.toggle("mobile-open", shouldOpen);
+  backdrop.classList.toggle("show", shouldOpen);
+  document.body.classList.toggle("sidebar-open", shouldOpen);
+  trigger.setAttribute("aria-expanded", String(shouldOpen));
+  trigger.setAttribute("aria-label", shouldOpen ? "Close workflow menu" : "Open workflow menu");
+}
+
+function bindShellControls() {
+  bindThemeToggle();
+
+  const trigger = document.getElementById("mobileMenuBtn");
+  const backdrop = document.getElementById("sidebarBackdrop");
+  if (trigger) trigger.onclick = () => setMobileMenu(trigger.getAttribute("aria-expanded") !== "true");
+  if (backdrop) backdrop.onclick = () => setMobileMenu(false);
+
+  document.querySelectorAll(".nav-item[data-step]").forEach(b => {
+    b.addEventListener("click", () => setMobileMenu(false));
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 768) setMobileMenu(false);
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && document.body.classList.contains("sidebar-open")) setMobileMenu(false);
+  });
+}
 
 async function init() {
+  initTheme();
   const autosave = await restoreAutosave();
   if (autosave && confirm("A previously unsaved project was found. Restore it?")) {
     try {
@@ -27,6 +63,7 @@ async function init() {
   }
 
   document.querySelectorAll(".nav-item[data-step]").forEach(b => b.onclick = () => go(b.dataset.step));
+  bindShellControls();
   document.getElementById("saveProjectBtn").onclick = () => { saveProject(); toast("Project exported. Participant rows are intentionally not embedded."); };
   document.getElementById("openProjectBtn").onclick = () => document.getElementById("projectFileInput").click();
   document.getElementById("newProjectBtn").onclick = () => {
