@@ -560,7 +560,9 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
 
   // 19. Service worker: version, assets on disk, privacy + fallback guards
   const swCode = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert(swCode.includes("const CACHE = 'certiforge-v0.5.0';"), 'sw.js cache version must be certiforge-v0.5.0');
+  const packageMeta = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+  const expectedCache = `certiforge-v${packageMeta.version}`;
+  assert(swCode.includes(`const CACHE = '${expectedCache}';`), `sw.js cache version must match package version (${expectedCache})`);
   const assetsMatch = swCode.match(/const ASSETS = \[([\s\S]*?)\];/);
   assert(assetsMatch, 'ASSETS list declared');
   const swAssets = (0, eval)('[' + assetsMatch[1] + ']');
