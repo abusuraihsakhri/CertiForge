@@ -167,13 +167,35 @@ function renderMapping(app) {
   const customTokens = state.columns.map(c => `<code>{{${escapeHTML(columnToken(c))}}}</code>`).join(" ");
   const gf = state.globalFields;
   const idSafe = v => `map-${v.replace(/[^A-Z0-9_]/g, "")}`;
-  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">04 / MAPPING</div><h1>Map your spreadsheet.</h1><p class="lead">Participant columns override conference-wide details only when the cell has a value.</p></div><button class="btn primary" id="toPreview">Continue</button></div>
-  <div class="card panel"><h2>Conference-wide details</h2><div class="form-grid"><div class="field"><label for="global-EVENT">Event</label><input id="global-EVENT" data-global="EVENT" value="${escapeHTML(gf.EVENT || "")}"></div><div class="field"><label for="global-DATE">Date</label><input id="global-DATE" data-global="DATE" value="${escapeHTML(gf.DATE || "")}"></div><div class="field"><label for="global-VENUE">Venue</label><input id="global-VENUE" data-global="VENUE" value="${escapeHTML(gf.VENUE || "")}"></div><div class="field"><label for="global-ORGANIZATION">Organization</label><input id="global-ORGANIZATION" data-global="ORGANIZATION" value="${escapeHTML(gf.ORGANIZATION || "")}"></div></div></div>
-  <div class="section-gap"></div><div class="card panel"><h2>Column mapping</h2><div class="mapping-grid">${variableKeys.filter(v => !["CERTIFICATE_ID", "YEAR", "VERIFY_URL", "VERIFY_SIG"].includes(v)).map(v => `<div class="map-card ${v === "NAME" ? "required-map" : ""}"><strong><label for="${idSafe(v)}">{{${v}}}${v === "NAME" ? ' <span class="required">required</span>' : ""}</label></strong><div class="arrow" aria-hidden="true">↓</div><select id="${idSafe(v)}" data-map="${v}" ${v === "NAME" ? "aria-required='true'" : ""}><option value="">${["EVENT", "DATE", "VENUE", "ORGANIZATION"].includes(v) ? "Use conference-wide value" : "Not mapped"}</option>${options}</select></div>`).join("")}</div><div class="notice" style="margin-top:14px"><b>Direct spreadsheet variables:</b> every column is also available as a token. ${customTokens}</div></div></div>`;
+  const fallbackVars = new Set(["EVENT", "DATE", "VENUE", "ORGANIZATION"]);
+  const mappedVars = variableKeys.filter(v => !["CERTIFICATE_ID", "YEAR", "VERIFY_URL", "VERIFY_SIG"].includes(v));
+
+  const sourceLabel = (variable) => {
+    if (state.mappings[variable]) return "Spreadsheet";
+    return fallbackVars.has(variable) ? "Event settings" : "Not mapped";
+  };
+
+  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">04 / MAPPING</div><h1>Map your spreadsheet.</h1><p class="lead">Connect certificate fields to participant columns. Event-level values remain the fallback where applicable.</p></div><button class="btn primary" id="toPreview">Continue</button></div>
+  <div class="card panel"><h2>Event settings</h2><div class="form-grid"><div class="field"><label for="global-EVENT">Event</label><input id="global-EVENT" data-global="EVENT" value="${escapeHTML(gf.EVENT || "")}"></div><div class="field"><label for="global-DATE">Date</label><input id="global-DATE" data-global="DATE" value="${escapeHTML(gf.DATE || "")}"></div><div class="field"><label for="global-VENUE">Venue</label><input id="global-VENUE" data-global="VENUE" value="${escapeHTML(gf.VENUE || "")}"></div><div class="field"><label for="global-ORGANIZATION">Organization</label><input id="global-ORGANIZATION" data-global="ORGANIZATION" value="${escapeHTML(gf.ORGANIZATION || "")}"></div></div></div>
+  <div class="section-gap"></div>
+  <div class="card mapping-panel">
+    <div class="mapping-head"><div><h2>Column mapping</h2><p>Only Name is required. Leave optional fields unmapped unless a template uses them.</p></div><span>${state.columns.length} spreadsheet columns detected</span></div>
+    <div class="mapping-table-wrap"><table class="mapping-table"><thead><tr><th>Certificate field</th><th>Spreadsheet column</th><th>Source</th></tr></thead><tbody>
+      ${mappedVars.map(v => `<tr class="${v === "NAME" ? "mapping-required" : ""}">
+        <td><label for="${idSafe(v)}"><strong>{{${v}}}</strong>${v === "NAME" ? '<span class="required">Required</span>' : ""}</label></td>
+        <td><select id="${idSafe(v)}" data-map="${v}" ${v === "NAME" ? "aria-required='true'" : ""}><option value="">${fallbackVars.has(v) ? "Use event setting" : "Not mapped"}</option>${options}</select></td>
+        <td><span class="source-badge" data-source="${v}">${sourceLabel(v)}</span></td>
+      </tr>`).join("")}
+    </tbody></table></div>
+    <div class="notice mapping-token-note"><b>Direct spreadsheet variables:</b> every imported column is also available as a token. ${customTokens}</div>
+  </div></div>`;
+
   app.querySelectorAll("[data-map]").forEach(s => {
     s.value = state.mappings[s.dataset.map] || "";
     s.onchange = () => {
       state.mappings[s.dataset.map] = s.value;
+      const badge = app.querySelector(`[data-source="${s.dataset.map}"]`);
+      if (badge) badge.textContent = s.value ? "Spreadsheet" : (fallbackVars.has(s.dataset.map) ? "Event settings" : "Not mapped");
       markDirty();
     };
   });
@@ -187,7 +209,10 @@ function renderMapping(app) {
       }
     }
   });
-  document.getElementById("toPreview").onclick = () => { if (!state.mappings.NAME) { toast("Map a spreadsheet column to {{NAME}} first."); return; } go("preview"); };
+  document.getElementById("toPreview").onclick = () => {
+    if (!state.mappings.NAME) { toast("Map a spreadsheet column to {{NAME}} first."); return; }
+    go("preview");
+  };
 }
 
 function renderPreview(app) {
