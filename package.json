@@ -1,6 +1,6 @@
 {
   "name": "certiforge",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,5 +9,5 @@
   "engines": {
     "node": ">=20.19"
   },
-  "description": "Privacy-first browser-based certificate studio for bulk design, spreadsheet-driven generation, PDF export, and verification."
+  "description": "Browser-based certificate design, spreadsheet-driven generation, PDF export, and verification."
 }

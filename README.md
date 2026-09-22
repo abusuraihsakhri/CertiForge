@@ -50,11 +50,11 @@ Create a certificate once, connect it to an Excel or CSV file, generate individu
 
 ### 🎨 Certificate Studio
 
-- Dark studio theme by default with a persistent light-theme toggle
+- Warm editorial light theme by default with a persistent dark-mode toggle
 - Fixed desktop workflow sidebar with an independently scrolling workspace
 - Off-canvas workflow drawer with hamburger control on tablets and phones
-- Dot-grid editor artboard that keeps the certificate visually distinct
-- **13 built-in certificate templates** across medical, academic, conference, award, technology, corporate, and sports use cases
+- Neutral paper-focused editor artboard that keeps the certificate visually distinct
+- **13 redesigned certificate templates** with warm paper palettes, restrained ink, serif hierarchy, and print-oriented spacing across medical, academic, conference, award, technology, corporate, and sports use cases
 - Editable text elements with direct drag positioning
 - Logo, signature, and image upload
 - PNG, JPEG, WebP, and SVG support

@@ -1,4 +1,4 @@
-const CACHE = 'certiforge-v0.7.0';
+const CACHE = 'certiforge-v0.8.0';
 const ASSETS = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const ASSETS = [
   './css/main.css',
   './css/editor.css',
   './css/responsive.css',
+  './css/atelier.css',
   './css/verify.css',
   './icons/icon.svg',
   './icons/icon-maskable.svg',

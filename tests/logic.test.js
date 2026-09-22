@@ -582,6 +582,21 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   assert(!xlsxCode.includes('fetch(') && !xlsxCode.includes('XMLHttpRequest'), 'vendor/xlsx.full.min.js must contain no outbound network requests');
   ok('20. vendor telemetry check');
 
+  // 21. Editorial design system integration
+  const atelierCss = fs.readFileSync(path.join(__dirname, '..', 'css/atelier.css'), 'utf8');
+  const themeSource = fs.readFileSync(path.join(__dirname, '..', 'js/theme.js'), 'utf8');
+  assert(indexHtmlSource.includes('css/atelier.css'), 'index.html must load the editorial design system');
+  assert(atelierCss.includes('.cert-canvas::before') && atelierCss.includes('content:none!important'), 'editor chrome must not force decorative overlays onto every certificate');
+  assert(themeSource.includes("storedTheme() || 'light'"), 'light theme must be the default when no preference is stored');
+  const modernTemplate = getTemplate('modern');
+  assert(modernTemplate.background === '#f6f0e1', 'flagship modern template must use the ivory paper palette');
+  assert(modernTemplate.elements.some(e => e.id === 'seal' && e.type === 'image'), 'flagship modern template must include its template-owned seal');
+  templates.forEach(t => {
+    assert(t.elements.some(e => e.type === 'qr'), `Template ${t.id} must retain QR verification`);
+    assert(t.elements.some(e => /certificate-id|^id$/.test(e.id || '')), `Template ${t.id} must retain a certificate identifier layer`);
+  });
+  ok('21. editorial design system integration');
+
   console.log(`\nCertiForge logic tests: PASS (${passed} sections)`);
 })().catch(e => {
   console.error(e);

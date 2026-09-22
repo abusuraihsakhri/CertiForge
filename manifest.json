@@ -2,12 +2,12 @@
   "id": "./",
   "name": "CertiForge — Certificate Studio",
   "short_name": "CertiForge",
-  "description": "Privacy-first bulk certificate designer and generator",
+  "description": "Local-first certificate design, batch generation, PDF export, and verification",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#eee8de",
+  "theme_color": "#eee8de",
   "icons": [
     {
       "src": "icons/icon.svg",
