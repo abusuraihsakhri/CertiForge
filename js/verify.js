@@ -1,14 +1,13 @@
 /**
  * CertiForge verification portal logic.
  *
- * Trust model (v0.6):
- *  - The signing secret NEVER exists on this page and is never accepted from a URL.
- *  - Current verify links carry only the certificate ID and its keyed digest —
- *    no recipient data travels in the URL. The credential is confirmed green
- *    when that id+digest pair exactly matches the organizer-published
- *    verification-registry.json (schema 2, which itself stores only IDs and
- *    keyed digests — no participant names) or a registry file the operator
- *    deliberately loads for offline checking.
+ * Trust model:
+ *  - The signing secret/private key NEVER exists on this page and is never accepted from a URL.
+ *  - Schema-2 links carry a certificate ID plus keyed digest and are confirmed
+ *    only when that pair matches the organizer-published registry.
+ *  - Schema-3 links carry certificate ID, payload hash and ECDSA P-256 signature.
+ *    The verifier requires the exact ID/hash/signature tuple published by the
+ *    registry and then verifies the signature with the registry's public key.
  *  - Legacy links carrying full fields and legacy registries holding plaintext
  *    fields remain supported: presented fields are compared, and the digest
  *    still has the final say.
@@ -233,11 +232,11 @@ export function renderEcdsaVerified(card, record, match, registry) {
     <div class="verify-body">
       <div class="detail-grid">${detailRows(Object.entries(shown))}</div>
       <div class="security-notice">
-        <strong>How this was verified:</strong> the QR code carries a SHA-256 hash of the certificate's
-        canonical fields and an ECDSA P-256 signature over that hash. The portal verified the signature
-        against the organizer's public key published in the verification registry. This proves the issuer's
-        private key signed exactly these fields — unforgeable without that key, and the hash cannot be
-        reversed into recipient data. The signing secret was never exposed to this page or the link.
+        <strong>How this was verified:</strong> the QR code's certificate ID, payload hash and ECDSA
+        signature exactly match the organizer's registry entry, and the signature verifies against the
+        published P-256 public key. A hash-only registry does not disclose recipient details; organizations
+        that need third-party identity comparison should publish an approved subset of certificate metadata
+        through their verification service. The private signing key is never exposed to this page or link.
       </div>
       ${actionsHtml()}
     </div>`;
