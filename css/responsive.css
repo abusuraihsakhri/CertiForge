@@ -53,14 +53,14 @@
   .mapping-head{align-items:center}
 }
 @media (max-width:600px){
-  .topbar{height:auto;min-height:58px;padding:8px 10px;align-items:center;flex-wrap:wrap}
+  .main-panel>.topbar{position:relative;top:auto;height:auto;min-height:58px;padding:8px 10px;align-items:center;flex-wrap:wrap}
   .top-project{width:100%;justify-content:space-between}
   .top-project strong{max-width:72vw}
   .verify-shell .brand{flex:1}
   .brand-mark{width:32px;height:32px}
   .top-actions{width:100%;display:grid;grid-template-columns:repeat(4,1fr)}
   .top-actions .btn{width:100%;padding:7px 6px}
-  .sidebar{top:98px}
+  .sidebar{top:0}
   #app{padding:12px 10px 22px}
   .page-head{flex-direction:column;margin-bottom:14px}
   .page-head>.toolbar,.page-head>.btn{width:100%}
