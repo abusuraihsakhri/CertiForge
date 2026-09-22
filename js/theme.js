@@ -12,7 +12,7 @@ function storedTheme() {
 function updateThemeMeta(theme) {
   if (typeof document === 'undefined' || !document.querySelector) return;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', theme === 'dark' ? '#0f172a' : '#f6f7fb');
+  if (meta) meta.setAttribute('content', theme === 'dark' ? '#171310' : '#eee8de');
 }
 
 function updateThemeButton(theme) {
@@ -40,7 +40,7 @@ export function applyTheme(theme, persist = false) {
 }
 
 export function initTheme() {
-  return applyTheme(storedTheme() || 'dark');
+  return applyTheme(storedTheme() || 'light');
 }
 
 export function bindThemeToggle() {
