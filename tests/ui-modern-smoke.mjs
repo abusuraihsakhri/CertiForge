@@ -17,6 +17,7 @@ try{
     let dims=await page.evaluate(()=>({sw:document.documentElement.scrollWidth,iw:innerWidth,cards:document.querySelectorAll('.template-card').length}));
     assert(dims.sw<=dims.iw+2,tc.name+': horizontal overflow on templates');
     assert(dims.cards>=10,tc.name+': templates missing');
+    await page.screenshot({path:'artifacts/'+tc.name+'-templates.png',fullPage:true});
 
     await page.locator('.template-card').first().click();
     await page.waitForSelector('.editor-layout');
@@ -28,6 +29,7 @@ try{
     assert(dims.sw<=dims.iw+2,tc.name+': horizontal overflow in editor');
     assert(dims.cw>100&&dims.ch>60,tc.name+': certificate canvas collapsed');
     assert(dims.toolbar,tc.name+': canvas toolbar missing');
+    await page.screenshot({path:'artifacts/'+tc.name+'-editor.png',fullPage:true});
 
     await page.locator('[data-zoom="75"]').click();
     assert(await page.locator('[data-zoom="75"]').getAttribute('aria-pressed')==='true',tc.name+': zoom control failed');
@@ -42,6 +44,7 @@ try{
     dims=await page.evaluate(()=>({sw:document.documentElement.scrollWidth,iw:innerWidth,rows:document.querySelectorAll('.mapping-table tbody tr').length}));
     assert(dims.sw<=dims.iw+2,tc.name+': horizontal overflow in mapping');
     assert(dims.rows>=8,tc.name+': mapping rows missing');
+    await page.screenshot({path:'artifacts/'+tc.name+'-mapping.png',fullPage:true});
 
     await page.goto('http://127.0.0.1:4173/verify.html',{waitUntil:'networkidle'});
     await page.waitForSelector('.verify-card');
@@ -49,7 +52,7 @@ try{
     assert(dims.sw<=dims.iw+2,tc.name+': horizontal overflow on verification');
     assert(dims.vw>200,tc.name+': verification card collapsed');
 
-    await page.screenshot({path:'artifacts/'+tc.name+'.png',fullPage:true});
+    await page.screenshot({path:'artifacts/'+tc.name+'-verify.png',fullPage:true});
     await page.close();
   }
 }finally{await browser.close();}
