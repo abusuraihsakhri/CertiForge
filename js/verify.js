@@ -23,6 +23,7 @@ import { initTheme } from './theme.js';
 
 const esc = escapeHTML;
 const SIG_PATTERN = /^[a-zA-Z0-9_\-]{8,200}$/;
+const HASH_PATTERN = /^[a-f0-9]{64}$/i;
 
 export function parseRecord(search) {
   const p = new URLSearchParams(search);
@@ -67,6 +68,7 @@ export function normalizeRegistry(raw) {
         date: norm(c.date),
         organization: norm(c.organization),
         sig: norm(c.sig),
+        h: norm(c.h),
         filename: norm(c.filename)
       }))
   };
@@ -100,6 +102,43 @@ export function evaluateRecord(record, registry) {
     return { status: 'mismatch', match, diffs: ["Signature digest"] };
   }
   return { status: 'verified', match };
+}
+
+/**
+ * Verify a schema-3 ECDSA record against the exact registry entry for its ID.
+ * A valid signature alone is not enough: the scanned hash and signature must
+ * also be the pair that the issuer published for that certificate ID.
+ */
+export async function evaluateEcdsaRecord(record, registry) {
+  if (!record || !norm(record.id)) return { status: 'invalid', reason: "No certificate ID was supplied." };
+  if (!SIG_PATTERN.test(norm(record.sig))) return { status: 'invalid', reason: "The supplied signature is missing or malformed." };
+  if (!HASH_PATTERN.test(norm(record.h))) return { status: 'invalid', reason: "The supplied payload hash is missing or malformed." };
+  if (!registry) return { status: 'no-registry' };
+  if (registry.schema !== 3 || !registry.publicKey) return { status: 'invalid', reason: "The active registry does not contain an ECDSA public key." };
+
+  const wanted = norm(record.id).toUpperCase();
+  const match = registry.certificates.find(c => norm(c.id).toUpperCase() === wanted);
+  if (!match) return { status: 'not-found', id: record.id };
+
+  if (!HASH_PATTERN.test(norm(match.h))) {
+    return { status: 'invalid', match, reason: "The registry entry does not contain a valid payload hash." };
+  }
+  if (norm(match.h).toLowerCase() !== norm(record.h).toLowerCase()) {
+    return { status: 'mismatch', match, diffs: ["Payload hash"] };
+  }
+  if (!norm(match.sig) || norm(match.sig) !== norm(record.sig)) {
+    return { status: 'mismatch', match, diffs: ["ECDSA signature"] };
+  }
+
+  try {
+    const publicKey = await importPublicKeyJWK(registry.publicKey);
+    const valid = await verifySignature(publicKey, norm(record.h), norm(record.sig));
+    return valid
+      ? { status: 'verified', match }
+      : { status: 'mismatch', match, diffs: ["ECDSA signature"] };
+  } catch (_) {
+    return { status: 'invalid', match, reason: "The registry public key or signature could not be processed." };
+  }
 }
 
 function detailRows(pairs) {
@@ -397,20 +436,19 @@ async function init() {
     // strongest path — it proves the issuer's private key signed exactly these
     // fields, without exposing the secret or requiring the registry to store
     // participant names.
-    if (hasWebCrypto() && loadedRegistry?.publicKey && record.h) {
-      try {
-        const pubKey = await importPublicKeyJWK(loadedRegistry.publicKey);
-        const ecdsaValid = await verifySignature(pubKey, record.h, record.sig);
-        if (ecdsaValid) {
-          const match = (loadedRegistry.certificates || []).find(c => norm(c.id).toUpperCase() === norm(record.id).toUpperCase());
-          renderEcdsaVerified(card, record, match, loadedRegistry);
-          return;
-        }
-        // ECDSA present but signature invalid — tampered record.
+    if (hasWebCrypto() && loadedRegistry?.schema === 3 && loadedRegistry?.publicKey && record.h) {
+      const outcome = await evaluateEcdsaRecord(record, loadedRegistry);
+      if (outcome.status === 'verified') {
+        renderEcdsaVerified(card, record, outcome.match, loadedRegistry);
+        return;
+      }
+      if (outcome.status === 'not-found') {
+        renderNotFound(card, record, loadedRegistry);
+        return;
+      }
+      if (outcome.status === 'mismatch' || outcome.status === 'invalid') {
         renderEcdsaMismatch(card, record, loadedRegistry);
         return;
-      } catch (_) {
-        // Crypto unavailable at runtime — fall through to pair-match.
       }
     }
 
