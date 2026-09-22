@@ -71,7 +71,18 @@ function renderTemplates(app) {
     <div class="filter-bar">
       ${cats.map(c => `<button class="btn ${_templateFilter === c ? 'primary' : 'ghost'}" data-cat="${escapeHTML(c)}" >${escapeHTML(c)}</button>`).join("")}
     </div>
-    <div class="grid template-grid">${filtered.map(t => `<article class="card template-card ${state.templateId === t.id ? 'active-template' : ''}" data-template="${escapeHTML(t.id)}" role="button" tabindex="0" aria-pressed="${state.templateId === t.id}" aria-label="Use template ${escapeHTML(t.name)}"><div class="template-thumb">${templateSVG(t.id)}</div><div class="template-info"><strong>${escapeHTML(t.name)}</strong><p>${escapeHTML(t.description)}</p><span class="tag">${escapeHTML(t.category)}</span></div></article>`).join("")}</div></div>`;
+    <div class="grid template-grid">${filtered.map(t => {
+      const selected = state.templateId === t.id;
+      const orientation = t.page?.orientation === "portrait" ? "Portrait" : "Landscape";
+      return `<article class="card template-card ${selected ? 'active-template' : ''}" data-template="${escapeHTML(t.id)}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="Use template ${escapeHTML(t.name)}">
+        <div class="template-thumb">${templateSVG(t.id)}${selected ? '<span class="template-selected" aria-hidden="true">✓</span>' : ''}</div>
+        <div class="template-info">
+          <strong>${escapeHTML(t.name)}</strong>
+          <div class="template-meta"><span>${escapeHTML(t.category)}</span><span>•</span><span>${orientation}</span></div>
+          <div class="template-use">Use template <span aria-hidden="true">→</span></div>
+        </div>
+      </article>`;
+    }).join("")}</div></div>`;
     
     app.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => { _templateFilter = b.dataset.cat; draw(); });
     const selectTemplate = (id) => {
