@@ -14,11 +14,20 @@ function setMobileMenu(open) {
   const trigger = document.getElementById("mobileMenuBtn");
   if (!sidebar || !backdrop || !trigger) return;
   const shouldOpen = Boolean(open);
-  sidebar.classList.toggle("mobile-open", shouldOpen);
-  backdrop.classList.toggle("show", shouldOpen);
-  document.body.classList.toggle("sidebar-open", shouldOpen);
-  trigger.setAttribute("aria-expanded", String(shouldOpen));
-  trigger.setAttribute("aria-label", shouldOpen ? "Close workflow menu" : "Open workflow menu");
+  const mobile = window.matchMedia ? window.matchMedia("(max-width: 768px)").matches : window.innerWidth <= 768;
+  sidebar.classList.toggle("mobile-open", shouldOpen && mobile);
+  backdrop.classList.toggle("show", shouldOpen && mobile);
+  document.body.classList.toggle("sidebar-open", shouldOpen && mobile);
+  trigger.setAttribute("aria-expanded", String(shouldOpen && mobile));
+  trigger.setAttribute("aria-label", shouldOpen && mobile ? "Close workflow menu" : "Open workflow menu");
+
+  if (mobile) {
+    sidebar.setAttribute("aria-hidden", String(!shouldOpen));
+    if ("inert" in sidebar) sidebar.inert = !shouldOpen;
+  } else {
+    sidebar.removeAttribute("aria-hidden");
+    if ("inert" in sidebar) sidebar.inert = false;
+  }
 }
 
 function bindShellControls() {
@@ -28,6 +37,7 @@ function bindShellControls() {
   const backdrop = document.getElementById("sidebarBackdrop");
   if (trigger) trigger.onclick = () => setMobileMenu(trigger.getAttribute("aria-expanded") !== "true");
   if (backdrop) backdrop.onclick = () => setMobileMenu(false);
+  setMobileMenu(false);
 
   document.querySelectorAll(".nav-item[data-step]").forEach(b => {
     b.addEventListener("click", () => setMobileMenu(false));
