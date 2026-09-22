@@ -266,20 +266,27 @@ function renderPreview(app) {
   if (!rows.length) { toast("No valid participant names are available for preview."); go("mapping"); return; }
   state.sampleIndex = Math.max(0, Math.min(rows.length - 1, state.sampleIndex));
 
-  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">05 / PREVIEW</div><h1>Check the result.</h1><p class="lead">This is the exact artwork and numbering the batch will produce.</p></div><div class="toolbar"><button class="btn" id="prev">Previous</button><button class="btn" id="next">Next</button><button class="btn primary" id="toGenerate">Generate</button></div></div>
-  <div class="card panel"><div class="preview-stage"><div id="previewSheet" class="preview-sheet"></div></div><div id="previewCounter" style="margin-top:15px;font-size:12px;color:var(--muted)" aria-live="polite"></div></div></div>`;
+  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">05 / PREVIEW</div><h1>Preview the final certificates.</h1><p class="lead">This uses the same artwork, variables, and numbering as the generated PDF batch.</p></div><button class="btn primary" id="toGenerate">Generate</button></div>
+  <div class="preview-toolbar card">
+    <div class="preview-picker"><label for="previewSelect">Recipient</label><select id="previewSelect">${rows.map((row, i) => `<option value="${i}">${escapeHTML(String(row.NAME || `Certificate ${i + 1}`))}</option>`).join("")}</select></div>
+    <div class="preview-nav"><button class="btn" id="prev">Previous</button><span id="previewCounter" aria-live="polite"></span><button class="btn" id="next">Next</button></div>
+  </div>
+  <div class="section-gap"></div><div class="card preview-card"><div class="preview-stage"><div id="previewSheet" class="preview-sheet"></div></div></div></div>`;
 
   const sheet = document.getElementById("previewSheet");
   const counter = document.getElementById("previewCounter");
+  const select = document.getElementById("previewSelect");
   const prevBtn = document.getElementById("prev");
   const nextBtn = document.getElementById("next");
   const show = () => {
     const i = state.sampleIndex;
     sheet.innerHTML = renderCertificateSVG(rows[i], i);
-    counter.textContent = `Certificate ${i + 1} of ${rows.length}`;
+    counter.textContent = `${i + 1} / ${rows.length}`;
+    select.value = String(i);
     prevBtn.disabled = i <= 0;
     nextBtn.disabled = i >= rows.length - 1;
   };
+  select.onchange = () => { state.sampleIndex = Math.max(0, Math.min(rows.length - 1, Number(select.value) || 0)); show(); };
   prevBtn.onclick = () => { state.sampleIndex = Math.max(0, state.sampleIndex - 1); show(); };
   nextBtn.onclick = () => { state.sampleIndex = Math.min(rows.length - 1, state.sampleIndex + 1); show(); };
   document.getElementById("toGenerate").onclick = () => go("generate");
