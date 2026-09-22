@@ -163,15 +163,33 @@ function renderEditor(app) {
 
 function renderData(app) {
   const v = validateRows();
-  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">03 / PARTICIPANTS</div><h1>Bring in your participant list.</h1><p class="lead">CSV works without an external library. XLS/XLSX uses the Excel parser loaded by the page.</p></div><button class="btn primary" id="toMapping" ${state.rows.length ? "" : "disabled"}>Continue</button></div>
-  <div class="card panel"><div id="dropzone" class="dropzone"><strong>Drop your Excel or CSV file here</strong><p>or choose a file from your device</p><button class="btn" id="chooseFile">Choose file</button><input id="dataFile" type="file" accept=".xlsx,.xls,.csv,.tsv" aria-label="Choose participant spreadsheet" hidden></div></div>
-  ${state.rows.length ? `<div class="section-gap"></div><div class="metric-grid"><div class="metric"><strong>${v.total}</strong><span>PARTICIPANTS</span></div><div class="metric"><strong>${v.valid}</strong><span>VALID NAMES</span></div><div class="metric"><strong>${v.duplicateNames}</strong><span>DUPLICATE NAMES</span></div></div><div class="section-gap"></div><div class="card panel"><h2>Data preview</h2><div class="table-wrap">${tableHTML(state.rows.slice(0, 10))}</div></div>` : ""}</div>`;
-  const dz = document.getElementById("dropzone"), input = document.getElementById("dataFile"), choose = document.getElementById("chooseFile"), next = document.getElementById("toMapping");
+  const meta = state.importMeta || {};
+  const fileSize = meta.size ? (meta.size < 1024 * 1024 ? Math.max(1, Math.round(meta.size / 1024)) + " KB" : (meta.size / (1024 * 1024)).toFixed(1) + " MB") : "";
+  const imported = state.rows.length ? `<div class="card import-summary">
+    <div class="import-icon" aria-hidden="true">✓</div>
+    <div class="import-summary-copy">
+      <strong>${escapeHTML(meta.fileName || "Participant data loaded")}</strong>
+      <span>${v.total} rows · ${state.columns.length} columns${meta.sheetName ? ` · Sheet: ${escapeHTML(meta.sheetName)}` : ""}${fileSize ? ` · ${fileSize}` : ""}</span>
+    </div>
+    <button class="btn" id="chooseFile">Replace file</button>
+    <input id="dataFile" type="file" accept=".xlsx,.xls,.csv,.tsv" aria-label="Choose participant spreadsheet" hidden>
+  </div>` : `<div class="card panel"><div id="dropzone" class="dropzone"><strong>Drop your Excel or CSV file here</strong><p>XLSX, XLS, CSV, or TSV. Processing stays in this browser.</p><button class="btn" id="chooseFile">Choose file</button><input id="dataFile" type="file" accept=".xlsx,.xls,.csv,.tsv" aria-label="Choose participant spreadsheet" hidden></div></div>`;
+
+  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">03 / PARTICIPANTS</div><h1>Import participant data.</h1><p class="lead">Use a spreadsheet as the source for names, roles, institutions, and any custom certificate fields.</p></div><button class="btn primary" id="toMapping" ${state.rows.length ? "" : "disabled"}>Continue</button></div>
+  ${imported}
+  ${state.rows.length ? `<div class="section-gap"></div><div class="metric-grid"><div class="metric"><strong>${v.total}</strong><span>Participants</span></div><div class="metric"><strong>${v.valid}</strong><span>Valid names</span></div><div class="metric"><strong>${v.duplicateNames}</strong><span>Duplicate names</span></div></div><div class="section-gap"></div><div class="card panel"><div class="panel-title-row"><h2>Data preview</h2><span>First ${Math.min(10, state.rows.length)} rows</span></div><div class="table-wrap">${tableHTML(state.rows.slice(0, 10))}</div></div>` : ""}</div>`;
+
+  const dz = document.getElementById("dropzone");
+  const input = document.getElementById("dataFile");
+  const choose = document.getElementById("chooseFile");
+  const next = document.getElementById("toMapping");
   choose.onclick = () => input.click();
   input.onchange = () => input.files[0] && handleDataFile(input.files[0]);
-  dz.ondragover = e => { e.preventDefault(); dz.classList.add("drag"); };
-  dz.ondragleave = () => dz.classList.remove("drag");
-  dz.ondrop = e => { e.preventDefault(); dz.classList.remove("drag"); if (e.dataTransfer.files[0]) handleDataFile(e.dataTransfer.files[0]); };
+  if (dz) {
+    dz.ondragover = e => { e.preventDefault(); dz.classList.add("drag"); };
+    dz.ondragleave = () => dz.classList.remove("drag");
+    dz.ondrop = e => { e.preventDefault(); dz.classList.remove("drag"); if (e.dataTransfer.files[0]) handleDataFile(e.dataTransfer.files[0]); };
+  }
   if (next) next.onclick = () => go("mapping");
 }
 
