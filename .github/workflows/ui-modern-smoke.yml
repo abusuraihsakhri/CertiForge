@@ -1,0 +1,33 @@
+name: UI browser smoke
+
+on:
+  push:
+    branches: [ui-modernization-sequential-2026-09-22]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start static site
+        run: |
+          python3 -m http.server 4173 >/tmp/certiforge-http.log 2>&1 &
+          sleep 2
+      - name: Run UI smoke test
+        run: node tests/ui-modern-smoke.mjs
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-modern-smoke
+          path: artifacts/
