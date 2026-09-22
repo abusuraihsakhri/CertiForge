@@ -299,38 +299,60 @@ function renderGenerate(app) {
   const val = validateRows();
   const batchCount = generationRows().length;
   if (state.settings.verifySecret === LEGACY_VERIFY_SALT) toast("Signing secret is the publicly known legacy default — click Randomize to make signatures private again.");
-  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">06 / GENERATE</div><h1>Generate your certificate batch.</h1><p class="lead">Rows without a participant name are skipped. Duplicate filenames are automatically suffixed.</p></div></div>
-  <div class="generate-grid"><div class="card panel"><h2>Certificate numbering</h2>
-    <div class="form-grid">
-      <div class="field">
-        <div style="display:flex;justify-content:space-between;align-items:center"><label for="prefix">Prefix</label><button type="button" id="derivePrefixBtn" style="font-size:11px;font-weight:700;background:none;border:none;color:var(--accent2);cursor:pointer;padding:0">⚡ From Event</button></div>
-        <input id="prefix" maxlength="12">
+  app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">06 / GENERATE</div><h1>Generate your certificate batch.</h1><p class="lead">Review output settings, signing, and the final batch count before creating PDFs.</p></div></div>
+  <div class="generate-grid">
+    <div class="card panel">
+      <div class="panel-title-row"><h2>Output settings</h2><span>PDF & filenames</span></div>
+      <div class="form-grid">
+        <div class="field">
+          <div class="field-label-row"><label for="prefix">Prefix</label><button type="button" class="inline-action" id="derivePrefixBtn">From event</button></div>
+          <input id="prefix" maxlength="12">
+        </div>
+        <div class="field"><label for="year">Year</label><input id="year" maxlength="8" inputmode="numeric"></div>
+        <div class="field"><label for="start">Starting number</label><input id="start" type="number" min="0" step="1"></div>
+        <div class="field"><label for="digits">Digits</label><input id="digits" type="number" min="1" max="8"></div>
       </div>
-      <div class="field"><label for="year">Year</label><input id="year" maxlength="8" inputmode="numeric"></div>
-      <div class="field"><label for="start">Starting number</label><input id="start" type="number" min="0" step="1"></div>
-      <div class="field"><label for="digits">Digits</label><input id="digits" type="number" min="1" max="8"></div>
+      <div class="id-preview"><span>Sample certificate ID</span><strong id="sampleIdText"></strong></div>
+      <div class="field"><label for="filename">Filename pattern</label><input id="filename" maxlength="200"><p class="mini-help">Example: {{CERTIFICATE_ID}}_{{NAME}}.pdf</p></div>
+      <div class="field"><label for="rasterScale">PDF quality</label><select id="rasterScale"><option value="1">Standard</option><option value="2">High (recommended)</option><option value="3">Very high</option></select></div>
     </div>
-    <p class="mini-help" style="margin-top:9px">Sample ID: <strong id="sampleIdText" style="color:var(--ink)"></strong></p>
-    <div class="field" style="margin-top:14px"><label for="filename">Filename pattern</label><input id="filename" maxlength="200"></div>
-    <div class="field" style="margin-top:14px"><label for="rasterScale">PDF quality</label><select id="rasterScale"><option value="1">Standard</option><option value="2">High (recommended)</option><option value="3">Very high</option></select></div>
-    <div class="field" style="margin-top:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center"><label for="verifySecret">Verification signing secret</label><button type="button" id="randomSecretBtn" style="font-size:11px;font-weight:700;background:none;border:none;color:var(--accent2);cursor:pointer;padding:0">⚡ Randomize</button></div>
-      <input id="verifySecret" type="password" autocomplete="off" spellcheck="false" placeholder="Private secret key for SHA-256 signatures">
-      <p class="mini-help" style="margin-top:6px">Keeps signatures unforgeable. It never leaves this device, but it lives in autosave and exported project files — treat those like credentials. Publish the exported registry next to verify.html so scans confirm against it.</p>
-    </div>
-    <div class="field" style="margin-top:14px">
-      <label>ECDSA P-256 signing key</label>
-      <div id="ecdsaStatus" class="mini-help" style="margin-top:6px">Checking…</div>
-      <div style="display:flex;gap:6px;margin-top:8px">
-        <button type="button" class="btn" id="exportKeyBtn" style="display:none">Export Key Backup</button>
-        <button type="button" class="btn" id="importKeyBtn">Import Key</button>
+
+    <div class="card panel batch-summary-card">
+      <div class="panel-title-row"><h2>Batch summary</h2><span>Ready to export</span></div>
+      <div class="metric-grid"><div class="metric"><strong>${batchCount}</strong><span>PDF files</span></div><div class="metric"><strong>${val.missingName}</strong><span>Rows skipped</span></div><div class="metric"><strong>${val.duplicateNames}</strong><span>Duplicate names</span></div></div>
+      <div class="generate-cta">
+        <button class="btn primary" id="generateBtn">Generate ${batchCount} certificates</button>
+        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progressBar"></div></div>
+        <div id="progressText" class="mini-help" aria-live="polite">Ready to generate ${batchCount} certificates.</div>
       </div>
-      <input type="file" id="keyFileInput" accept=".json,application/json" hidden>
-      <p class="mini-help" style="margin-top:6px">When active, certificates are signed with ECDSA P-256 — the portal verifies using only the published public key. Back up your key to issue from other devices.</p>
     </div>
-    <p class="mini-help" style="margin-top:9px">Example: {{CERTIFICATE_ID}}_{{NAME}}.pdf</p>
   </div>
-  <div class="card panel"><h2>Batch summary</h2><div class="metric-grid"><div class="metric"><strong>${batchCount}</strong><span>PDF FILES</span></div><div class="metric"><strong>${val.missingName}</strong><span>ROWS SKIPPED</span></div><div class="metric"><strong>${val.duplicateNames}</strong><span>DUPLICATE NAMES</span></div></div><div class="section-gap"></div><button class="btn primary" id="generateBtn" style="width:100%;padding:13px">GENERATE ALL CERTIFICATES</button><div class="section-gap"></div><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progressBar"></div></div><div id="progressText" class="mini-help" style="margin-top:8px" aria-live="polite">Ready to generate ${batchCount} certificates.</div></div></div>
+
+  <div class="section-gap"></div>
+  <div class="card panel signing-card">
+    <div class="panel-title-row"><div><h2>Verification & signing</h2><p class="mini-help">Security settings are separate from PDF output. Keep signing material private.</p></div><span>Advanced</span></div>
+    <div class="signing-grid">
+      <div class="signing-block">
+        <div class="field">
+          <div class="field-label-row"><label for="verifySecret">Verification signing secret</label><button type="button" class="inline-action" id="randomSecretBtn">Randomize</button></div>
+          <input id="verifySecret" type="password" autocomplete="off" spellcheck="false" placeholder="Private secret key for SHA-256 signatures">
+          <p class="mini-help">Stored in local autosave and exported project files. Treat project backups containing this secret as credentials.</p>
+        </div>
+      </div>
+      <div class="signing-block">
+        <div class="field">
+          <label>ECDSA P-256 signing key</label>
+          <div id="ecdsaStatus" class="mini-help">Checking…</div>
+          <div class="page-actions signing-actions">
+            <button type="button" class="btn" id="exportKeyBtn" style="display:none">Export key backup</button>
+            <button type="button" class="btn" id="importKeyBtn">Import key</button>
+          </div>
+          <input type="file" id="keyFileInput" accept=".json,application/json" hidden>
+          <p class="mini-help">When active, the portal verifies signatures with the published public key only.</p>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="section-gap"></div><div id="resultCard"></div></div>`;
 
   const refs = { prefix: document.getElementById("prefix"), year: document.getElementById("year"), start: document.getElementById("start"), digits: document.getElementById("digits"), filename: document.getElementById("filename"), rasterScale: document.getElementById("rasterScale"), verifySecret: document.getElementById("verifySecret") };
