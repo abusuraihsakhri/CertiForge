@@ -2,8 +2,7 @@ import { state } from './state.js';
 import { mappedRows } from './mapping.js';
 import { renderCertificateSVG, svgToPdf } from './pdf.js';
 import { getTemplate } from './templates.js';
-import { resolveText, verificationContext, canonicalSignatureFields, canonicalPayload } from './variables.js';
-import { sha256 } from './variables.js';
+import { resolveText, verificationContext, applyVerificationSignature } from './variables.js';
 import { safeFilename, uniqueFilename } from './utils.js';
 import { batchYieldEvery, workerPoolMax } from './config.js';
 import { updateGenerationProgress } from './progress.js';
@@ -89,7 +88,7 @@ async function buildJobs(rows) {
       sig = await signPayload(privateKey, h);
     }
 
-    const finalCtx = { ...ctx, VERIFY_SIG: sig, VERIFY_URL: ctx.VERIFY_URL };
+    const finalCtx = applyVerificationSignature(ctx, sig);
 
     const base = safeFilename(resolveText(state.settings.filename, row, finalCtx).replace(/\.pdf$/i, ""))
       || ctx.CERTIFICATE_ID || `certificate-${i + 1}`;

@@ -186,6 +186,8 @@ The included verification portal supports:
 
 A manually typed certificate ID confirms only that a record exists. Cryptographic confirmation requires the QR verification data and the corresponding registry.
 
+For a public verification service on a separate server, see **[VPS Verification Deployment Guide](docs/VPS_VERIFICATION.md)**.
+
 ### 🔐 Signing and Integrity
 
 CertiForge supports two verification modes:

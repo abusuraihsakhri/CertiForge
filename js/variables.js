@@ -146,6 +146,23 @@ export function getVerificationUrl(data, secret) {
 }
 
 /**
+ * Replace the signature in an existing verification context and rebuild the QR
+ * URL from that same signature + payload hash. This is required when the
+ * generator upgrades the fallback keyed digest to an ECDSA signature.
+ */
+export function applyVerificationSignature(ctx, signature) {
+  const sig = String(signature ?? "").trim();
+  if (!ctx || !ctx.CERTIFICATE_ID || !ctx.VERIFY_H || !sig) {
+    throw new Error("A complete verification context and signature are required.");
+  }
+  return {
+    ...ctx,
+    VERIFY_SIG: sig,
+    VERIFY_URL: buildVerificationUrl({ id: ctx.CERTIFICATE_ID }, sig, ctx.VERIFY_H)
+  };
+}
+
+/**
  * Per-record verification context: computes the ID, digest and QR URL exactly once.
  * Registry rows, PDF output and the preview all consume this same object, so what
  * is previewed is byte-identical to what is printed and registered.

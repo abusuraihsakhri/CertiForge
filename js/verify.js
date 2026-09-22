@@ -1,14 +1,13 @@
 /**
  * CertiForge verification portal logic.
  *
- * Trust model (v0.6):
- *  - The signing secret NEVER exists on this page and is never accepted from a URL.
- *  - Current verify links carry only the certificate ID and its keyed digest —
- *    no recipient data travels in the URL. The credential is confirmed green
- *    when that id+digest pair exactly matches the organizer-published
- *    verification-registry.json (schema 2, which itself stores only IDs and
- *    keyed digests — no participant names) or a registry file the operator
- *    deliberately loads for offline checking.
+ * Trust model:
+ *  - The signing secret/private key NEVER exists on this page and is never accepted from a URL.
+ *  - Schema-2 links carry a certificate ID plus keyed digest and are confirmed
+ *    only when that pair matches the organizer-published registry.
+ *  - Schema-3 links carry certificate ID, payload hash and ECDSA P-256 signature.
+ *    The verifier requires the exact ID/hash/signature tuple published by the
+ *    registry and then verifies the signature with the registry's public key.
  *  - Legacy links carrying full fields and legacy registries holding plaintext
  *    fields remain supported: presented fields are compared, and the digest
  *    still has the final say.
@@ -23,6 +22,7 @@ import { initTheme } from './theme.js';
 
 const esc = escapeHTML;
 const SIG_PATTERN = /^[a-zA-Z0-9_\-]{8,200}$/;
+const HASH_PATTERN = /^[a-f0-9]{64}$/i;
 
 export function parseRecord(search) {
   const p = new URLSearchParams(search);
@@ -67,6 +67,7 @@ export function normalizeRegistry(raw) {
         date: norm(c.date),
         organization: norm(c.organization),
         sig: norm(c.sig),
+        h: norm(c.h),
         filename: norm(c.filename)
       }))
   };
@@ -100,6 +101,43 @@ export function evaluateRecord(record, registry) {
     return { status: 'mismatch', match, diffs: ["Signature digest"] };
   }
   return { status: 'verified', match };
+}
+
+/**
+ * Verify a schema-3 ECDSA record against the exact registry entry for its ID.
+ * A valid signature alone is not enough: the scanned hash and signature must
+ * also be the pair that the issuer published for that certificate ID.
+ */
+export async function evaluateEcdsaRecord(record, registry) {
+  if (!record || !norm(record.id)) return { status: 'invalid', reason: "No certificate ID was supplied." };
+  if (!SIG_PATTERN.test(norm(record.sig))) return { status: 'invalid', reason: "The supplied signature is missing or malformed." };
+  if (!HASH_PATTERN.test(norm(record.h))) return { status: 'invalid', reason: "The supplied payload hash is missing or malformed." };
+  if (!registry) return { status: 'no-registry' };
+  if (registry.schema !== 3 || !registry.publicKey) return { status: 'invalid', reason: "The active registry does not contain an ECDSA public key." };
+
+  const wanted = norm(record.id).toUpperCase();
+  const match = registry.certificates.find(c => norm(c.id).toUpperCase() === wanted);
+  if (!match) return { status: 'not-found', id: record.id };
+
+  if (!HASH_PATTERN.test(norm(match.h))) {
+    return { status: 'invalid', match, reason: "The registry entry does not contain a valid payload hash." };
+  }
+  if (norm(match.h).toLowerCase() !== norm(record.h).toLowerCase()) {
+    return { status: 'mismatch', match, diffs: ["Payload hash"] };
+  }
+  if (!norm(match.sig) || norm(match.sig) !== norm(record.sig)) {
+    return { status: 'mismatch', match, diffs: ["ECDSA signature"] };
+  }
+
+  try {
+    const publicKey = await importPublicKeyJWK(registry.publicKey);
+    const valid = await verifySignature(publicKey, norm(record.h), norm(record.sig));
+    return valid
+      ? { status: 'verified', match }
+      : { status: 'mismatch', match, diffs: ["ECDSA signature"] };
+  } catch (_) {
+    return { status: 'invalid', match, reason: "The registry public key or signature could not be processed." };
+  }
 }
 
 function detailRows(pairs) {
@@ -194,11 +232,11 @@ export function renderEcdsaVerified(card, record, match, registry) {
     <div class="verify-body">
       <div class="detail-grid">${detailRows(Object.entries(shown))}</div>
       <div class="security-notice">
-        <strong>How this was verified:</strong> the QR code carries a SHA-256 hash of the certificate's
-        canonical fields and an ECDSA P-256 signature over that hash. The portal verified the signature
-        against the organizer's public key published in the verification registry. This proves the issuer's
-        private key signed exactly these fields — unforgeable without that key, and the hash cannot be
-        reversed into recipient data. The signing secret was never exposed to this page or the link.
+        <strong>How this was verified:</strong> the QR code's certificate ID, payload hash and ECDSA
+        signature exactly match the organizer's registry entry, and the signature verifies against the
+        published P-256 public key. A hash-only registry does not disclose recipient details; organizations
+        that need third-party identity comparison should publish an approved subset of certificate metadata
+        through their verification service. The private signing key is never exposed to this page or link.
       </div>
       ${actionsHtml()}
     </div>`;
@@ -397,20 +435,19 @@ async function init() {
     // strongest path — it proves the issuer's private key signed exactly these
     // fields, without exposing the secret or requiring the registry to store
     // participant names.
-    if (hasWebCrypto() && loadedRegistry?.publicKey && record.h) {
-      try {
-        const pubKey = await importPublicKeyJWK(loadedRegistry.publicKey);
-        const ecdsaValid = await verifySignature(pubKey, record.h, record.sig);
-        if (ecdsaValid) {
-          const match = (loadedRegistry.certificates || []).find(c => norm(c.id).toUpperCase() === norm(record.id).toUpperCase());
-          renderEcdsaVerified(card, record, match, loadedRegistry);
-          return;
-        }
-        // ECDSA present but signature invalid — tampered record.
+    if (hasWebCrypto() && loadedRegistry?.schema === 3 && loadedRegistry?.publicKey && record.h) {
+      const outcome = await evaluateEcdsaRecord(record, loadedRegistry);
+      if (outcome.status === 'verified') {
+        renderEcdsaVerified(card, record, outcome.match, loadedRegistry);
+        return;
+      }
+      if (outcome.status === 'not-found') {
+        renderNotFound(card, record, loadedRegistry);
+        return;
+      }
+      if (outcome.status === 'mismatch' || outcome.status === 'invalid') {
         renderEcdsaMismatch(card, record, loadedRegistry);
         return;
-      } catch (_) {
-        // Crypto unavailable at runtime — fall through to pair-match.
       }
     }
 
