@@ -429,6 +429,66 @@ p.lead{color:var(--text-secondary)}
 .status-badge.search .status-icon{background:var(--accent-primary);color:#21180d}
 .verify-footer{border-top-color:var(--border-color)}
 
+
+/* Theme-specific specificity bridge for legacy component selectors. */
+:root[data-theme="light"] .canvas-stage,
+:root[data-theme="light"] .preview-stage{
+  background-color:#d9cfc1;
+  background-image:
+    radial-gradient(rgba(77,61,40,.20) .7px,transparent .7px),
+    linear-gradient(145deg,rgba(255,255,255,.30),transparent 58%);
+  background-size:18px 18px,100% 100%;
+}
+:root[data-theme="light"] .verify-shell{
+  background:
+    radial-gradient(circle at 18% 10%,rgba(154,113,54,.09),transparent 27%),
+    radial-gradient(circle at 82% 88%,rgba(154,113,54,.06),transparent 27%),
+    var(--bg-app);
+}
+
+html[data-theme="dark"] .field input,
+html[data-theme="dark"] .field select,
+html[data-theme="dark"] .field textarea,
+html[data-theme="dark"] .mapping-table select,
+html[data-theme="dark"] .preview-picker select{
+  background:#120f0c;
+  color:var(--text-primary);
+  border-color:var(--border-strong);
+}
+html[data-theme="dark"] .field input::placeholder,
+html[data-theme="dark"] .field textarea::placeholder{color:var(--text-tertiary)}
+html[data-theme="dark"] .field input:focus,
+html[data-theme="dark"] .field select:focus,
+html[data-theme="dark"] .field textarea:focus{
+  border-color:var(--accent-primary);
+  box-shadow:0 0 0 3px var(--accent-soft);
+}
+html[data-theme="dark"] .notice,
+html[data-theme="dark"] .dropzone,
+html[data-theme="dark"] .table-wrap,
+html[data-theme="dark"] .metric,
+html[data-theme="dark"] .mapping-head,
+html[data-theme="dark"] .mapping-table th,
+html[data-theme="dark"] .mapping-token-note,
+html[data-theme="dark"] .source-badge,
+html[data-theme="dark"] .id-preview,
+html[data-theme="dark"] .signing-card,
+html[data-theme="dark"] .signing-block,
+html[data-theme="dark"] .import-summary{
+  background:rgba(18,15,12,.72);
+  border-color:var(--border-color);
+  color:var(--text-body);
+}
+html[data-theme="dark"] .data-table th{background:#17120e;color:var(--text-secondary)}
+html[data-theme="dark"] .metric{background:#18130f}
+html[data-theme="dark"] .notice code{background:#120f0c;color:var(--accent-primary)}
+html[data-theme="dark"] .dropzone.drag{background:var(--accent-soft);border-color:var(--accent-primary)}
+html[data-theme="dark"] .result-card{background:rgba(119,155,127,.07);border-color:rgba(119,155,127,.30)}
+html[data-theme="dark"] .result-card h2{color:var(--success)}
+html[data-theme="dark"] .detail-item,
+html[data-theme="dark"] .security-notice,
+html[data-theme="dark"] .dropzone-soft{background:#18130f;border-color:var(--border-color)}
+
 @media(max-width:768px){
   .workspace{background-size:16px 16px,100% 100%}
   .sidebar{box-shadow:18px 0 44px rgba(38,27,14,.20)}
