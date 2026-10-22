@@ -237,9 +237,23 @@ p.lead{color:var(--text-secondary)}
 .inline-action{color:var(--accent-primary)}
 :focus-visible{outline:2px solid var(--accent-primary);outline-offset:2px}
 
+/* In-app confirm/prompt dialogs */
+.app-dialog-body p{margin:0 0 12px}
+.app-dialog-actions{margin-top:16px;justify-content:flex-end}
+
 /* Template gallery */
 .filter-bar .btn{border-radius:999px}
 .template-grid{gap:12px}
+/* Cards are real <button> elements now — reset the button chrome the card
+   styling replaces, so keyboard activation and click look identical. */
+button.template-card{
+  appearance:none;
+  font:inherit;
+  color:inherit;
+  text-align:left;
+  width:100%;
+  cursor:pointer;
+}
 .template-card{
   background:var(--bg-surface);
   border-color:var(--border-color);

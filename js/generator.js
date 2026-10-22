@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { mappedRows } from './mapping.js';
-import { renderCertificateSVG, renderStaticLayerSVG, renderDynamicLayerSVG, svgToCanvas, svgToPdf } from './pdf.js';
+import { renderCertificateSVG, renderStaticLayerSVG, renderDynamicLayerSVG, svgToCanvas, svgToPdf, newPdfForTemplate } from './pdf.js';
 import { getTemplate } from './templates.js';
 import { resolveText, verificationContext, applyVerificationSignature } from './variables.js';
 import { safeFilename, uniqueFilename } from './utils.js';
@@ -11,6 +11,7 @@ import { SAFE_FONT_DATA_URL } from './security.js';
 import { hasWebCrypto, importPrivateKeyJWK, exportPublicKeyJWK, exportPrivateKeyJWK, signPayload } from './crypto.js';
 import { loadSigningKey, storeSigningKey, pauseAutosave, resumeAutosave } from './storage.js';
 import { generateKeyPair } from './crypto.js';
+import { makeZip } from './zip.js';
 
 /**
  * Detect if Web Worker + OffscreenCanvas is supported in current environment.
@@ -351,12 +352,7 @@ async function generateAllWorker(jobs) {
       let scratchCanvas = null;
       function assembleFromBuffer(id, buffer) {
         const job = jobs[id];
-        const pdf = new jsPDF({
-          orientation: template.page.orientation === "landscape" ? "landscape" : "portrait",
-          unit: "pt",
-          format: [template.page.width, template.page.height],
-          compress: true
-        });
+        const pdf = newPdfForTemplate(template);
         const bytes = new Uint8Array(buffer);
         const isPng = bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
 
@@ -483,6 +479,13 @@ export function buildPublicRegistry() {
   };
 }
 
+/** Single ZIP path: incremental accumulator when JSZip is present, fallback otherwise. */
+export async function finalizeZip(result) {
+  return result.zip
+    ? result.zip.generateAsync({ type: "blob", compression: "STORE" })
+    : makeZip(result.files);
+}
+
 export async function generateAll() {
   if (_running) throw new Error("A batch is already being generated. Cancel it or wait for it to finish.");
   _running = true;
@@ -502,7 +505,7 @@ export async function generateAll() {
   }
 
   const source = mappedRows();
-  const rows = source.filter(r => String(r.NAME || "").trim());
+  const rows = generationRows();
   if (!rows.length) {
     _running = false;
     resumeAutosave();

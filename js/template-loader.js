@@ -36,7 +36,6 @@ export function templateSVG(templateId) {
       return `<rect x="${num(e.x) - sz / 2}" y="${num(e.y) - sz / 2}" width="${sz}" height="${sz}" fill="#f3f4f6" stroke="#4b5563" stroke-width="1.5" rx="3"/><text x="${num(e.x)}" y="${num(e.y) + 3}" text-anchor="middle" font-family="Arial" font-size="9" font-weight="700" fill="#374151">QR</text>`;
     }
     if (e.type === "text") {
-      if (e.id === "dots" || String(e.text).startsWith("......")) return "";
       const lines = String(e.text).split("\n");
       const lh = num(e.size, 16) * num(e.lineHeight, 1.25);
       const start = num(e.y) - ((lines.length - 1) * lh / 2);

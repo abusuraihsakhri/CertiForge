@@ -2,13 +2,12 @@ import { state, markDirty, randomVerifySecret } from './state.js';
 import { templates, getTemplate } from './templates.js';
 import { templateSVG, loadTemplate } from './template-loader.js';
 import { variableKeys, columnToken, extractConferencePrefix, extractConferenceYear, formatId } from './variables.js';
-import { safeFilename, escapeHTML, toast } from './utils.js';
+import { safeFilename, escapeHTML, toast, appConfirm, appPrompt } from './utils.js';
 import { renderCanvas } from './canvas.js';
 import { renderCurrentEditor, addTextElement, addQRElement, addImageFile, loadCustomFont } from './editor.js';
 import { parseSpreadsheet } from './spreadsheet.js';
 import { validateRows, validateProject } from './validator.js';
-import { generateAll, isGenerating, cancelGeneration, generationRows, buildPublicRegistry } from './generator.js';
-import { makeZip } from './zip.js';
+import { generateAll, isGenerating, cancelGeneration, generationRows, buildPublicRegistry, finalizeZip } from './generator.js';
 import { saveProject, loadProjectFile } from './project.js';
 import { undo, redo } from './history.js';
 import { renderCertificateSVG } from './pdf.js';
@@ -52,12 +51,19 @@ export function historyAction(fn, label) {
 
 export function renderStep() {
   const app = document.getElementById("app"), step = state.currentStep || "templates";
-  if (step === "templates") return renderTemplates(app);
-  if (step === "editor") return renderEditor(app);
-  if (step === "data") return renderData(app);
-  if (step === "mapping") return renderMapping(app);
-  if (step === "preview") return renderPreview(app);
-  if (step === "generate") return renderGenerate(app);
+  if (step === "templates") renderTemplates(app);
+  else if (step === "editor") renderEditor(app);
+  else if (step === "data") renderData(app);
+  else if (step === "mapping") renderMapping(app);
+  else if (step === "preview") renderPreview(app);
+  else if (step === "generate") renderGenerate(app);
+  // innerHTML replacement orphans the previous focus — move it to the step
+  // heading so keyboard and screen-reader users land in the new content.
+  const heading = app.querySelector("h1");
+  if (heading) {
+    heading.setAttribute("tabindex", "-1");
+    heading.focus({ preventScroll: true });
+  }
 }
 
 let _templateFilter = "All";
@@ -74,28 +80,25 @@ function renderTemplates(app) {
     <div class="grid template-grid">${filtered.map(t => {
       const selected = state.templateId === t.id;
       const orientation = t.page?.orientation === "portrait" ? "Portrait" : "Landscape";
-      return `<article class="card template-card ${selected ? 'active-template' : ''}" data-template="${escapeHTML(t.id)}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="Use template ${escapeHTML(t.name)}">
+      return `<button type="button" class="card template-card ${selected ? 'active-template' : ''}" data-template="${escapeHTML(t.id)}" aria-pressed="${selected}" aria-label="Use template ${escapeHTML(t.name)}">
         <div class="template-thumb">${templateSVG(t.id)}${selected ? '<span class="template-selected" aria-hidden="true">✓</span>' : ''}</div>
         <div class="template-info">
           <strong>${escapeHTML(t.name)}</strong>
           <div class="template-meta"><span>${escapeHTML(t.category)}</span><span>•</span><span>${orientation}</span></div>
           <div class="template-use">Use template <span aria-hidden="true">→</span></div>
         </div>
-      </article>`;
+      </button>`;
     }).join("")}</div></div>`;
-    
+
     app.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => { _templateFilter = b.dataset.cat; draw(); });
-    const selectTemplate = (id) => {
-      if (state.dirtySinceSave && !confirm("Selecting a different template discards your current design edits. Continue?")) return;
+    const selectTemplate = async (id) => {
+      if (state.dirtySinceSave && !(await appConfirm("Selecting a different template discards your current design edits. Continue?", { title: "Switch template", confirmLabel: "Switch", danger: true }))) return;
       loadTemplate(id);
       state.dirtySinceSave = true;
       go("editor");
     };
     app.querySelectorAll("[data-template]").forEach(c => {
       c.onclick = () => selectTemplate(c.dataset.template);
-      c.addEventListener("keydown", ev => {
-        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); selectTemplate(c.dataset.template); }
-      });
     });
   };
 
@@ -428,7 +431,7 @@ function renderGenerate(app) {
       try {
         const keyPair = await loadSigningKey(state.projectName);
         if (!keyPair) { toast("No signing key to export."); return; }
-        const passphrase = prompt("Enter a passphrase to encrypt your key backup:");
+        const passphrase = await appPrompt("Enter a passphrase to encrypt your key backup:", { title: "Export key backup", password: true, placeholder: "Passphrase", confirmLabel: "Export" });
         if (!passphrase) return;
         const encrypted = await encryptWithPassphrase(keyPair, passphrase);
         const blob = new Blob([JSON.stringify(encrypted, null, 2)], { type: "application/json" });
@@ -450,7 +453,7 @@ function renderGenerate(app) {
       try {
         const data = JSON.parse(await file.text());
         if (!data.ct || !data.salt || !data.iv) throw new Error("Not a valid CertiForge key backup file.");
-        const passphrase = prompt("Enter the passphrase for this key backup:");
+        const passphrase = await appPrompt("Enter the passphrase for this key backup:", { title: "Import key backup", password: true, placeholder: "Passphrase", confirmLabel: "Import" });
         if (!passphrase) return;
         const keyPair = await decryptWithPassphrase(data, passphrase);
         if (!keyPair.publicKey || !keyPair.privateKey) throw new Error("Backup did not contain a valid key pair.");
@@ -504,9 +507,7 @@ function renderGenerate(app) {
       document.getElementById("downloadZip").onclick = async () => {
         try {
           toast("Preparing ZIP download...");
-          const blob = result.zip
-            ? await result.zip.generateAsync({ type: "blob", compression: "STORE" })
-            : await makeZip(result.files);
+          const blob = await finalizeZip(result);
           const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${safeFilename(state.certificate.prefix || "CertiForge")}-certificates.zip`; a.click();
           setTimeout(() => URL.revokeObjectURL(a.href), 1500);
         }

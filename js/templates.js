@@ -140,7 +140,8 @@ function editorialTemplate({
   organization = "{{ORGANIZATION}}",
   sealColor = "#8e2f2a",
   sealInk = "#51201d",
-  useSeal = true
+  useSeal = true,
+  footerInk = INK.muted
 }) {
   const elements = [
     ...frame(ink, accent, frameStyle),
@@ -155,7 +156,7 @@ function editorialTemplate({
     ...signatureLine("sig-left", 250, "Authorized Signatory", ink),
     ...signatureLine("sig-right", 873, "Program Director", ink),
     ...(useSeal ? [seal("seal", sealColor, sealInk)] : []),
-    ...verificationFooter(INK.muted)
+    ...verificationFooter(footerInk)
   ];
   return { id, name, category, description, page: { ...PAGE }, background, elements };
 }
@@ -418,7 +419,8 @@ export const templates = [
     organization: "{{ORGANIZATION}}",
     sealColor: "#a87e2c",
     sealInk: "#5f4315",
-    useSeal: true
+    useSeal: true,
+    footerInk: "#b3a88f"
   }),
 
   editorialTemplate({

@@ -304,7 +304,8 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   assert(buildSvgSkeleton('modern') === skelA1, 'After invalidation, skeleton content must be deterministic');
   ok('12. skeleton caching with revision invalidation');
 
-  // 13. History: shallow-share snapshots, independence from live mutation
+  // 13. History: shallow-share snapshots, independence from live mutation,
+  //     mappings/globalFields/certificate coverage, selection preservation
   state.templateId = 'modern';
   resetHistory();
   state.elements = [
@@ -312,16 +313,30 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
     { id: 'el_shape', type: 'shape', shape: 'rect', _svg: '<rect width="20" height="20"/>', x: 20, y: 20, w: 50, h: 50 },
     { id: 'el_text', type: 'text', text: 'Certificate of Excellence', size: 20, x: 100, y: 100 }
   ];
+  state.mappings = { NAME: 'Name Col' };
+  state.globalFields.EVENT = 'History Event';
+  state.certificate.prefix = 'HIST';
+  state.selectedElement = 'el_text';
   pushHistory();
   const snap = state.history.stack[state.history.index];
-  assert(snap.length === 3, 'snapshot length');
-  assert(!('_qrDataUrl' in snap[0]) && !('_svg' in snap[1]), 'transient fields stripped');
+  assert(snap.elements.length === 3, 'snapshot element length');
+  assert(!('_qrDataUrl' in snap.elements[0]) && !('_svg' in snap.elements[1]), 'transient fields stripped');
   assert(state.elements[0]._qrDataUrl === 'data:image/png;base64,largeqrcode', 'live element keeps transient fields');
   state.elements[2].text = 'MUTATED';
-  assert(snap[2].text === 'Certificate of Excellence', 'snapshot must be independent of live mutations');
+  assert(snap.elements[2].text === 'Certificate of Excellence', 'snapshot must be independent of live mutations');
   state.elements[2].text = 'Certificate of Excellence';
+  // A second edit (mapping + prefix + selection cleared), then undo/redo across it.
+  state.mappings.NAME = 'Changed Col';
+  state.certificate.prefix = 'CHNG';
+  state.selectedElement = null;
+  pushHistory();
   assert(undo(), 'undo returns true');
+  assert(state.mappings.NAME === 'Name Col', 'undo must restore column mappings');
+  assert(state.certificate.prefix === 'HIST', 'undo must restore certificate settings');
+  assert(state.selectedElement === 'el_text', 'undo must preserve a surviving selection');
   assert(redo(), 'redo returns true');
+  assert(state.mappings.NAME === 'Changed Col', 'redo must re-apply the mapping change');
+  assert(state.certificate.prefix === 'CHNG', 'redo must re-apply certificate settings');
   assert(projectData().version === 3, 'projectData serializable');
   ok('13. history snapshots + undo/redo mechanics');
 

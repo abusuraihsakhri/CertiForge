@@ -94,8 +94,10 @@ export const ASSETS = {
     </svg>
   `),
 
-  // 6. Signatures (Vector Calligraphy curves matching official conference documents)
-  // Signatory 1: Dr. Nita Khurana (Patron)
+  // 6. Signatures — anonymous calligraphy placeholders. Templates ship generic
+  // role labels ("Patron", "Organising Secretary", …); organizers replace or
+  // overlay these with their own signatories. No real person's signature is
+  // reproduced here.
   sigKhurana: svgToDataUri(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 60" width="160" height="60">
       <path d="M 12 42 Q 22 12 28 40 Q 32 18 38 38 Q 44 26 48 38 Q 54 28 62 36 Q 74 34 85 36 M 34 26 L 82 26 M 88 38 Q 98 16 108 36 Q 116 28 126 36 Q 134 32 144 38 Q 148 24 154 40" 
@@ -104,7 +106,7 @@ export const ASSETS = {
     </svg>
   `),
 
-  // Signatory 2: Dr. JM Khunger (President)
+  // Signatory 2 (generic calligraphy)
   sigKhunger: svgToDataUri(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 60" width="160" height="60">
       <path d="M 15 44 Q 24 10 32 38 Q 38 18 45 36 Q 50 22 58 36 Q 64 28 72 38 M 22 28 L 76 28 Q 88 36 98 22 Q 106 38 116 28 Q 124 38 135 30 Q 142 36 150 28" 
@@ -113,7 +115,7 @@ export const ASSETS = {
     </svg>
   `),
 
-  // Signatory 3: Dr. Sabina Langer (Secretary)
+  // Signatory 3 (generic calligraphy)
   sigLanger: svgToDataUri(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 60" width="160" height="60">
       <path d="M 16 38 C 22 18, 30 14, 34 38 C 38 22, 46 20, 50 36 C 56 26, 62 26, 68 36 M 74 38 C 82 12, 90 10, 94 36 C 100 24, 108 24, 114 36 C 120 28, 128 30, 134 36 C 140 24, 148 28, 152 38" 
@@ -122,7 +124,7 @@ export const ASSETS = {
     </svg>
   `),
 
-  // Signatory 4: Dr. Sarika Singh (Organising Secretary)
+  // Signatory 4 (generic calligraphy)
   sigSingh: svgToDataUri(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 60" width="160" height="60">
       <path d="M 18 42 C 24 16, 32 14, 36 38 C 42 22, 50 20, 56 36 C 64 24, 72 26, 80 36 M 86 36 C 96 14, 106 14, 112 36 C 118 24, 126 26, 134 36 C 142 20, 150 24, 154 38" 

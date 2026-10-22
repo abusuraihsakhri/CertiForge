@@ -12,7 +12,8 @@ test('theme toggle switches, persists across reload, and announces itself', asyn
   await toggle.click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   expect(await page.evaluate(() => localStorage.getItem('certiforge-theme'))).toBe('dark');
-  await expect(toggle).toHaveAttribute('aria-label', 'Switch to light theme');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(toggle).toHaveAttribute('aria-label', 'Toggle dark theme');
 
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');

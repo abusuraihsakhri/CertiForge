@@ -19,10 +19,11 @@ function updateThemeButton(theme) {
   if (typeof document === 'undefined' || !document.getElementById) return;
   const button = document.getElementById('themeToggleBtn');
   if (!button) return;
-  const next = theme === 'dark' ? 'light' : 'dark';
-  button.setAttribute('aria-label', `Switch to ${next} theme`);
-  button.setAttribute('aria-pressed', String(theme === 'light'));
-  button.title = `Switch to ${next} theme`;
+  // Toggle-button semantics: constant accessible name, aria-pressed reflects
+  // the active state (dark = pressed).
+  button.setAttribute('aria-label', 'Toggle dark theme');
+  button.setAttribute('aria-pressed', String(theme === 'dark'));
+  button.title = 'Toggle dark theme';
 }
 
 export function applyTheme(theme, persist = false) {

@@ -1,7 +1,8 @@
-import { state } from './state.js';
+import { state, markDirty } from './state.js';
 import { getTemplate } from './templates.js';
 import { renderCanvas } from './canvas.js';
 import { pushHistory } from './history.js';
+import { clearSvgCache } from './pdf.js';
 import { escapeHTML, uid, clampNum } from './utils.js';
 import { generateQRDataUrl } from './qrcode.js';
 import { resolveText, sampleRecord, verificationContext } from './variables.js';
@@ -89,8 +90,11 @@ export async function loadCustomFont(file) {
     const loaded = await fontFace.load();
     document.fonts.add(loaded);
     state.fonts.push({ name: file.name, family, data: safeUrl });
+    // Fonts are not part of the undo snapshot — no no-op history entry, but the
+    // SVG skeleton (which embeds @font-face defs) must be invalidated.
+    clearSvgCache();
+    markDirty();
     renderCurrentEditor();
-    pushHistory();
   } catch (e) {
     throw new Error("Could not load font: " + (e?.message || e));
   }

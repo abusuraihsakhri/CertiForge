@@ -236,12 +236,18 @@ export async function svgToCanvas(svg, scale = 2, { transparent = false, under =
   } finally { URL.revokeObjectURL(url); }
 }
 
+/** One configured jsPDF document for a template page — shared by every assembly path. */
+export function newPdfForTemplate(t) {
+  if (typeof window === 'undefined' || !window.jspdf) throw new Error("PDF support could not load. Reload the page and try again.");
+  const { jsPDF } = window.jspdf;
+  return new jsPDF({ orientation: t.page.orientation === "landscape" ? "landscape" : "portrait", unit: "pt", format: [t.page.width, t.page.height], compress: true });
+}
+
 export async function svgToPdf(svg, { under = null } = {}) {
-  if (!window.jspdf) throw new Error("PDF support could not load. Reload the page and try again.");
-  const t = getTemplate(state.templateId), { jsPDF } = window.jspdf;
+  const t = getTemplate(state.templateId);
   const scale = Math.max(1, Math.min(3, Number(state.settings.rasterScale) || 2));
   const canvas = await svgToCanvas(svg, scale, under ? { transparent: true, under } : {});
-  const pdf = new jsPDF({ orientation: t.page.orientation === "landscape" ? "landscape" : "portrait", unit: "pt", format: [t.page.width, t.page.height], compress: true });
+  const pdf = newPdfForTemplate(t);
   // jsPDF accepts a canvas element directly — avoids a multi-MB base64 string per page.
   pdf.addImage(canvas, "PNG", 0, 0, t.page.width, t.page.height, undefined, "FAST");
   return pdf.output("blob");

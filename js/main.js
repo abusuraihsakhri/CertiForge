@@ -3,7 +3,7 @@ import { loadTemplate } from './template-loader.js';
 import { saveProject, loadProjectFile, applySanitizedState } from './project.js';
 import { go, historyAction } from './ui.js';
 import { undo, redo } from './history.js';
-import { toast } from './utils.js';
+import { toast, appConfirm } from './utils.js';
 import { startAutosave, restoreAutosave, clearAutosave } from './storage.js';
 import { sanitizeProjectState } from './security.js';
 import { initTheme, bindThemeToggle } from './theme.js';
@@ -55,7 +55,7 @@ function bindShellControls() {
 async function init() {
   initTheme();
   const autosave = await restoreAutosave();
-  if (autosave && confirm("A previously unsaved project was found. Restore it?")) {
+  if (autosave && await appConfirm("A previously unsaved project was found. Restore it?", { title: "Restore autosave", confirmLabel: "Restore" })) {
     try {
       // Same sanitization boundary as file import — never trust stored JSON.
       await applySanitizedState(sanitizeProjectState(autosave, defaultState()));
@@ -76,8 +76,8 @@ async function init() {
   bindShellControls();
   document.getElementById("saveProjectBtn").onclick = () => { saveProject(); toast("Project exported. Participant rows are intentionally not embedded."); };
   document.getElementById("openProjectBtn").onclick = () => document.getElementById("projectFileInput").click();
-  document.getElementById("newProjectBtn").onclick = () => {
-    if (state.dirtySinceSave && !confirm("Start a new project? Unsaved design changes will be lost.")) return;
+  document.getElementById("newProjectBtn").onclick = async () => {
+    if (state.dirtySinceSave && !(await appConfirm("Start a new project? Unsaved design changes will be lost.", { title: "New project", confirmLabel: "Start new", danger: true }))) return;
     Object.assign(state, defaultState());
     delete state._signingPublicKey;
     delete state._signingKeyProjectName;
@@ -131,17 +131,25 @@ function openHelpDialog() {
       </ol>
       <div class="privacy-note">🔒 <strong>Privacy-first:</strong> All participant data is processed locally in your browser. Nothing is uploaded to any server.</div>
     </div>`;
+  // Background chrome becomes inert while the dialog is open, so Tab cannot
+  // escape the focus trap into the sidebar or workspace.
+  const sidebar = document.getElementById("appSidebar");
+  const workspace = document.getElementById("app");
+  sidebar?.setAttribute("inert", "");
+  workspace?.setAttribute("inert", "");
   document.body.appendChild(overlay);
 
   const close = () => {
     overlay.remove();
     document.removeEventListener("keydown", onKey);
+    sidebar?.removeAttribute("inert");
+    workspace?.removeAttribute("inert");
     if (opener && typeof opener.focus === 'function') opener.focus();
   };
   const onKey = (e) => {
     if (e.key === "Escape") { e.stopPropagation(); close(); return; }
     if (e.key === "Tab") {
-      // minimal focus trap: cycle between close button and dialog content
+      // focus trap: cycle between close button and dialog content
       const focusables = overlay.querySelectorAll("button, [href], input, select, textarea");
       if (!focusables.length) return;
       const first = focusables[0], last = focusables[focusables.length - 1];
