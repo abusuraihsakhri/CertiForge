@@ -4,8 +4,15 @@ export const maxHistoryEntries = 50;
 export const batchYieldEvery = 15;
 export const workerPoolMax = 8;
 
-// Fallback verification URL used when the app runs from file:// or has no usable origin.
-export const verifyBaseUrl = "https://abusuraihsakhri.github.io/CertiForge/verify.html";
+// Verification QR target. Empty string = same origin as the studio (recommended
+// for GitHub Pages, where verify.html ships next to index.html). Set an
+// absolute URL — e.g. https://certs.example.com/verify.html — to make it
+// authoritative on EVERY origin; this is required when the studio runs on one
+// host but the verification portal is self-hosted on a VPS (see
+// docs/VPS_VERIFICATION.md). The fallback below only applies when the studio
+// itself has no usable origin (file://).
+export const verifyBaseUrl = "";
+export const fileVerifyFallback = "https://abusuraihsakhri.github.io/CertiForge/verify.html";
 
 // Upload ceilings (bytes)
 export const maxProjectBytes = 25 * 1024 * 1024;

@@ -81,6 +81,7 @@ async function init() {
     Object.assign(state, defaultState());
     delete state._signingPublicKey;
     delete state._signingKeyProjectName;
+    delete state._signingKeyId;
     clearAutosave();
     loadTemplate("modern");
     go("templates");

@@ -6,12 +6,44 @@ import { renderCurrentEditor, renderProperties } from './editor.js';
 import { snapThreshold } from './config.js';
 import { escapeHTML } from './utils.js';
 import { generateQRDataUrl } from './qrcode.js';
+import { computeAlign } from './align.js';
 
 const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 
 function num(v, fallback = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
+}
+
+// Multi-selection: state.selectedElements drives the canvas selection chrome;
+// selectedElement stays the primary (inspector) element.
+function selection() {
+  if (Array.isArray(state.selectedElements) && state.selectedElements.length) return state.selectedElements.slice();
+  return state.selectedElement ? [state.selectedElement] : [];
+}
+
+/** Align/distribute the current selection (≥2) in place; returns success. */
+export function applyAlign(mode) {
+  const selected = selection()
+    .map(id => state.elements.find(e => e.id === id))
+    .filter(Boolean)
+    .filter(e => !e.locked);
+  if (selected.length < 2) return false;
+  const patches = new Map(computeAlign(selected, mode).map(p => [p.id, p]));
+  selected.forEach(e => {
+    const p = patches.get(e.id);
+    if (!p) return;
+    if (e.cx !== undefined) e.cx = p.x; else e.x = p.x;
+    if (e.cy !== undefined) e.cy = p.y; else e.y = p.y;
+  });
+  renderCurrentEditor();
+  pushHistory();
+  return true;
+}
+
+export function setSelection(ids, primary = null) {
+  state.selectedElements = ids;
+  state.selectedElement = primary != null ? primary : (ids[0] ?? null);
 }
 
 function sel(id) {
@@ -117,9 +149,9 @@ export function renderCanvas(container, row = null, interactive = false) {
       el.appendChild(qrImg);
     }
 
-    if (e.id === state.selectedElement) {
+    if (selection().includes(e.id)) {
       el.classList.add("selected");
-      if (interactive && !e.locked && (e.type === "text" || e.type === "image" || e.type === "qr")) {
+      if (interactive && !e.locked && e.id === state.selectedElement && (e.type === "text" || e.type === "image" || e.type === "qr")) {
         appendResizeHandles(el, e, sx, sy);
       }
     }
@@ -128,10 +160,20 @@ export function renderCanvas(container, row = null, interactive = false) {
       el.tabIndex = 0;
       el.dataset.nudge = "1";
       el.addEventListener("pointerdown", ev => beginDragElement(ev, e, container, t));
-      el.addEventListener("click", ev => { ev.stopPropagation(); state.selectedElement = e.id; renderCurrentEditor(); });
+      el.addEventListener("click", ev => {
+        ev.stopPropagation();
+        if (ev.shiftKey) {
+          const set = new Set(selection());
+          if (set.has(e.id)) set.delete(e.id); else set.add(e.id);
+          setSelection([...set], e.id);
+        } else {
+          setSelection([e.id], e.id);
+        }
+        renderCurrentEditor();
+      });
       el.addEventListener("focus", () => {
         if (state.selectedElement === e.id) return;
-        state.selectedElement = e.id;
+        setSelection([e.id], e.id);
         container.querySelectorAll(".canvas-element.selected").forEach(n => n.classList.remove("selected"));
         el.classList.add("selected");
         renderProperties();
@@ -144,7 +186,12 @@ export function renderCanvas(container, row = null, interactive = false) {
     container.appendChild(el);
   });
 
-  container.onclick = () => { if (interactive) { state.selectedElement = null; renderCurrentEditor(); } };
+  container.onclick = () => {
+    if (interactive) {
+      setSelection([], null);
+      renderCurrentEditor();
+    }
+  };
   applyScale();
   if (window.ResizeObserver) {
     if (container._cfObserver) container._cfObserver.disconnect();
@@ -204,10 +251,20 @@ function bindPointerCleanup(target, ev, move, up) {
 
 export function beginDragElement(ev, e, container, t) {
   ev.preventDefault(); ev.stopPropagation();
+  if (!selection().includes(e.id)) {
+    setSelection([e.id], e.id);
+  }
   state.selectedElement = e.id;
-  const startX = ev.clientX, startY = ev.clientY, origX = e.x, origY = e.y;
+  const startX = ev.clientX, startY = ev.clientY;
   const rect = container.getBoundingClientRect();
   let guides = [];
+
+  // The whole selection moves together; the dragged element drives snapping.
+  const group = selection()
+    .map(id => state.elements.find(x => x.id === id))
+    .filter(Boolean)
+    .filter(x => !x.locked)
+    .map(x => ({ e: x, origX: num(x.x ?? x.cx), origY: num(x.y ?? x.cy) }));
 
   const showGuides = (x, y) => {
     guides.forEach(g => g.remove());
@@ -238,15 +295,21 @@ export function beginDragElement(ev, e, container, t) {
   const move = mv => {
     let dx = (mv.clientX - startX) / rect.width * t.page.width;
     let dy = (mv.clientY - startY) / rect.height * t.page.height;
-    let nx = origX + dx, ny = origY + dy;
+    const primary = group.find(m => m.e === e);
+    const primaryOrigX = primary ? primary.origX : num(e.x ?? e.cx);
+    const primaryOrigY = primary ? primary.origY : num(e.y ?? e.cy);
+    let nx = primaryOrigX + dx, ny = primaryOrigY + dy;
     const others = state.elements.filter(o => o.id !== e.id);
     others.forEach(o => {
       [o.x, num(o.x) + num(o.w) / 2, num(o.x) + num(o.w)].forEach(v => { if (Math.abs(nx - v) < snapThreshold / rect.width * t.page.width) nx = v; });
       [o.y, num(o.y) + num(o.h) / 2, num(o.y) + num(o.h)].forEach(v => { if (Math.abs(ny - v) < snapThreshold / rect.height * t.page.height) ny = v; });
     });
 
-    const isCentered = (e.type === "text" || e.type === "image" || e.type === "qr");
-    if (isCentered) {
+    const isCentered = (e.type === "text" || e.type === "image" || e.type === "qr" || e.cx !== undefined);
+    if (e.cx !== undefined) {
+      e.cx = Math.round(Math.max(10, Math.min(t.page.width - 10, nx)));
+      e.cy = Math.round(Math.max(10, Math.min(t.page.height - 10, ny)));
+    } else if (isCentered) {
       e.x = Math.round(Math.max(10, Math.min(t.page.width - 10, nx)));
       e.y = Math.round(Math.max(10, Math.min(t.page.height - 10, ny)));
     } else {
@@ -254,25 +317,44 @@ export function beginDragElement(ev, e, container, t) {
       e.y = Math.round(Math.max(0, Math.min(t.page.height - num(e.h), ny)));
     }
 
+    // The rest of the selection follows the dragged element 1:1.
+    const actualDx = num(e.x ?? e.cx) - primaryOrigX;
+    const actualDy = num(e.y ?? e.cy) - primaryOrigY;
+    group.forEach(m => {
+      if (m.e === e) return;
+      if (m.e.cx !== undefined) {
+        m.e.cx = Math.round(Math.max(10, Math.min(t.page.width - 10, m.origX + actualDx)));
+        m.e.cy = Math.round(Math.max(10, Math.min(t.page.height - 10, m.origY + actualDy)));
+      } else {
+        m.e.x = Math.round(Math.max(0, Math.min(t.page.width - num(m.e.w), m.origX + actualDx)));
+        m.e.y = Math.round(Math.max(0, Math.min(t.page.height - num(m.e.h), m.origY + actualDy)));
+      }
+      const mNode = container.querySelector(sel(m.e.id));
+      if (mNode) {
+        mNode.style.left = (num(m.e.x ?? m.e.cx) / t.page.width * 100) + "%";
+        mNode.style.top = (num(m.e.y ?? m.e.cy) / t.page.height * 100) + "%";
+      }
+    });
+
     const node = container.querySelector(sel(e.id));
     if (node) {
-      node.style.left = (e.x / t.page.width * 100) + "%";
-      node.style.top = (e.y / t.page.height * 100) + "%";
+      node.style.left = (num(e.x ?? e.cx) / t.page.width * 100) + "%";
+      node.style.top = (num(e.y ?? e.cy) / t.page.height * 100) + "%";
     }
 
     const propX = document.getElementById("propX");
     const propY = document.getElementById("propY");
-    if (propX) propX.value = e.x;
-    if (propY) propY.value = e.y;
+    if (propX) propX.value = num(e.x ?? e.cx);
+    if (propY) propY.value = num(e.y ?? e.cy);
 
-    showGuides(e.x, e.y);
+    showGuides(num(e.x ?? e.cx), num(e.y ?? e.cy));
   };
 
   const up = () => {
     remove();
     guides.forEach(g => g.remove());
     guides = [];
-    const moved = e.x !== origX || e.y !== origY;
+    const moved = group.some(m => num(m.e.x ?? m.e.cx) !== m.origX || num(m.e.y ?? m.e.cy) !== m.origY);
     if (moved) { renderCurrentEditor(); pushHistory(); }
   };
   const remove = bindPointerCleanup(ev.currentTarget || ev.target, ev, move, up);

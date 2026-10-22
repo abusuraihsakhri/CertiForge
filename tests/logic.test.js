@@ -71,10 +71,10 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   const { loadProjectFile, applySanitizedState, SAFE_FONT_DATA_URL, projectData } = await import('../js/project.js');
   const { pushHistory, resetHistory, undo, redo } = await import('../js/history.js');
   const { sanitizeProjectState, detectFontFormat, normalizeFontDataUrl } = await import('../js/security.js');
-  const { LEGACY_VERIFY_SALT, verifyBaseUrl } = await import('../js/config.js');
+  const { LEGACY_VERIFY_SALT, verifyBaseUrl, fileVerifyFallback } = await import('../js/config.js');
   const { qrVendorAvailable } = await import('../js/qrcode.js');
   const ui = await import('../js/ui.js');
-  const { parseRecord, normalizeRegistry, evaluateRecord, evaluateEcdsaRecord, verificationGate, renderCryptoLimited, renderUnconfirmed, renderVerified, renderEcdsaVerified, renderEcdsaMismatch } = await import('../js/verify.js');
+  const { parseRecord, normalizeRegistry, evaluateRecord, evaluateEcdsaRecord, verificationGate, renderCryptoLimited, renderRevoked, renderUnconfirmed, renderVerified, renderEcdsaVerified, renderEcdsaMismatch } = await import('../js/verify.js');
   const {
     extractConferencePrefix,
     extractConferenceYear,
@@ -125,9 +125,11 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   assert(!verifyUrl.includes('name=') && !verifyUrl.includes('Alice') && !verifyUrl.includes('role='), 'Verification URL must not carry recipient PII');
   ok('2. signature v2 (fields, collisions, secret required, random default salt)');
 
-  // 2b. file:// and null-origin fallback for verification base URL
-  assert(getVerificationBaseUrl({ origin: 'null', pathname: '/C:/Users/x/index.html' }) === verifyBaseUrl, 'file:// (null origin) must fall back to configured URL');
+  // 2b. verification base URL resolution: config override, same-origin, file:// fallback
+  assert(getVerificationBaseUrl({ origin: 'null', pathname: '/C:/Users/x/index.html' }) === fileVerifyFallback, 'file:// (null origin) must fall back to the deployment fallback URL');
   assert(getVerificationBaseUrl({ origin: 'https://e.x', pathname: '/a/b/index.html' }) === 'https://e.x/a/b/verify.html', 'http(s) origin must build directory-relative URL');
+  assert(getVerificationBaseUrl({ origin: 'https://e.x', pathname: '/a/b/index.html' }, 'https://verify.example.com/v/verify.html') === 'https://verify.example.com/v/verify.html', 'a configured absolute base URL must be authoritative on every origin');
+  assert(getVerificationBaseUrl({ origin: 'https://e.x', pathname: '/a/b/index.html' }, 'not a url') === 'https://e.x/a/b/verify.html', 'invalid config must fall back to origin resolution');
   ok('2b. verification base URL resolution');
 
   // 3. Mapping — empty cells never blank conference-wide values
@@ -689,7 +691,8 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   state._signingKeyProjectName = 'Project Before';
   assert(buildPublicRegistry().schema === 2, "another project's key must not anchor this registry");
   state._signingKeyProjectName = 'Project Now';
-  assert(buildPublicRegistry().schema === 3, 'the current project key must anchor the registry');
+  state._signingKeyId = 'f'.repeat(16);
+  assert(buildPublicRegistry().schema === 4, 'the current project key must anchor the registry');
   await applySanitizedState(sanitizeProjectState({ elements: [], templateId: 'modern' }, defaultState()));
   assert(!state._signingPublicKey && !state._signingKeyProjectName, 'project switch must clear cached signing keys');
   delete state._signingPublicKey;
@@ -779,6 +782,82 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   markDirty();
   assert(mutationCount() === countBefore + 1, 'markDirty must advance the mutation counter');
   ok('24. layered batch rendering + mutation counter');
+
+  // 25. Features: key fingerprints, schema-4 registry, revocation, alignment geometry
+  // (a) Key fingerprint stability and uniqueness
+  const fp1 = await cryptoModule.keyIdFromJwk(pubJWK);
+  assert(/^[a-f0-9]{16}$/.test(fp1), 'keyId must be 16 hex chars');
+  assert(fp1 === await cryptoModule.keyIdFromJwk(pubJWK), 'keyId must be deterministic');
+  const otherFp = await cryptoModule.keyIdFromJwk(await cryptoModule.exportPublicKeyJWK(otherKeyPair.publicKey));
+  assert(fp1 !== otherFp, 'different keys must produce different fingerprints');
+
+  // (b) Schema-4 registry: keys map, keyId metadata, revocation entries
+  state.registry = [
+    { id: 'CERT-ECDSA-1', sig: ecdsaSig, h: testHash },
+    { id: 'CERT-REV', sig: 'aabbccdd11223344', revoked: true, revokedAt: '2026-10-22T00:00:00Z' }
+  ];
+  state._signingPublicKey = pubJWK;
+  state._signingKeyProjectName = state.projectName;
+  state._signingKeyId = fp1;
+  const reg4 = buildPublicRegistry();
+  assert(reg4.schema === 4, 'stamped keyId must promote the registry to schema 4');
+  assert(reg4.keys && reg4.keys[fp1] && reg4.keys[fp1].kty === 'EC', 'keys map must be keyed by fingerprint');
+  assert(reg4.signature.keyId === fp1, 'signature metadata must carry the keyId');
+  assert(reg4.certificates[1].revoked === true && reg4.certificates[1].revokedAt === '2026-10-22T00:00:00Z', 'revocation must be exported');
+  assert(reg4.certificates[0].revoked === undefined, 'unrevoked entries must carry no revocation fields');
+  assert(!JSON.stringify(reg4).includes('Alice'), 'schema-4 registry must not leak participant names');
+  state.registry = [{ id: 'CERT-ECDSA-1', sig: ecdsaSig, h: testHash }];
+
+  // (c) Rotated keys stay verifiable via the keys map
+  state._rotatedKeys = [{ keyId: otherFp, jwk: await cryptoModule.exportPublicKeyJWK(otherKeyPair.publicKey) }];
+  const regRot = buildPublicRegistry();
+  assert(Object.keys(regRot.keys).length === 2 && regRot.keys[otherFp], 'rotated keys must remain in the keys map');
+  state._rotatedKeys = [];
+
+  // (d) Portal: schema-4 normalization + cryptographic verification
+  const reg4n = normalizeRegistry(reg4);
+  assert(reg4n.schema === 4 && reg4n.keys && reg4n.keys[fp1], 'schema-4 normalization must keep the keys map');
+  assert((await evaluateEcdsaRecord({ id: 'CERT-ECDSA-1', sig: ecdsaSig, h: testHash }, reg4n)).status === 'verified', 'schema-4 registry must verify cryptographically');
+  assert(verificationGate({ id: 'CERT-ECDSA-1', sig: ecdsaSig, h: testHash }, reg4n) === 'ecdsa', 'gate must take the ECDSA path for schema 4');
+
+  // (e) Revocation wins on both portal paths
+  const badReg = normalizeRegistry({ schema: 4, publicKey: pubJWK, keys: { [fp1]: pubJWK }, certificates: [{ id: 'REV-1', sig: ecdsaSig, h: testHash, revoked: true, revokedAt: '2026-10-01T00:00:00Z' }] });
+  const revokedEcdsa = await evaluateEcdsaRecord({ id: 'REV-1', sig: ecdsaSig, h: testHash }, badReg);
+  assert(revokedEcdsa.status === 'revoked', 'a revoked entry must return revoked even with valid signature material');
+  const hmacReg = normalizeRegistry({ schema: 2, certificates: [{ id: 'H-1', sig: computeVerificationSignature(sampleCert, secret), revoked: true }] });
+  const hmacRevoked = evaluateRecord({ id: 'H-1', sig: computeVerificationSignature(sampleCert, secret) }, hmacReg);
+  assert(hmacRevoked.status === 'revoked', 'revocation must apply to the pair-match path too');
+  const revCard = { innerHTML: '' };
+  renderRevoked(revCard, { id: 'REV-1' }, badReg.certificates[0], badReg);
+  assert(revCard.innerHTML.includes('Has Been Revoked'), 'REVOKED card must render');
+  assert(revCard.innerHTML.includes('2026-10-01T00:00:00Z'), 'REVOKED card must show the revocation date');
+  assert(!revCard.innerHTML.includes('Credential Cryptographically Verified') && !revCard.innerHTML.includes('Credential Verified'), 'REVOKED card must never claim verification');
+
+  // (f) Alignment geometry: anchor conventions, distribute spacing
+  const { computeAlign, elementBounds } = await import('../js/align.js');
+  const rectA = { id: 'a', type: 'shape', shape: 'rect', x: 0, y: 0, w: 100, h: 50 };
+  const rectB = { id: 'b', type: 'shape', shape: 'rect', x: 400, y: 300, w: 100, h: 50 };
+  const txtA = { id: 't', type: 'text', x: 300, y: 200, w: 100, size: 20 };
+  assert(elementBounds(rectA).left === 0 && elementBounds(txtA).left === 250, 'bounds must reflect corner- vs center-anchored elements');
+  let patches = computeAlign([rectA, rectB], 'left');
+  assert(patches.find(p => p.id === 'b').x === 0, 'align left must move rightmost box to the shared left edge');
+  patches = computeAlign([rectA, txtA], 'left');
+  assert(patches.find(p => p.id === 't').x === 50, 'center-anchored text must land its left edge at the shared edge (x = 50)');
+  patches = computeAlign([rectA, rectB, txtA], 'right');
+  assert(patches.find(p => p.id === 'a').x === 400, 'align right must use the max right edge (500) minus width');
+  patches = computeAlign([rectA, rectB], 'vcenter');
+  assert(patches.find(p => p.id === 'b').y === 150, 'vertical center must use the shared midline');
+  const three = [
+    { id: 'd1', type: 'shape', shape: 'rect', x: 0, y: 0, w: 100, h: 40 },
+    { id: 'd2', type: 'shape', shape: 'rect', x: 150, y: 60, w: 100, h: 40 },
+    { id: 'd3', type: 'shape', shape: 'rect', x: 600, y: 120, w: 100, h: 40 }
+  ];
+  patches = computeAlign(three, 'dist-h');
+  assert(patches.find(p => p.id === 'd2').x === 300, 'horizontal distribution must space inner boxes evenly (left edge 300)');
+  assert(patches.find(p => p.id === 'd1').x === 0 && patches.find(p => p.id === 'd3').x === 600, 'outermost boxes must stay put on distribution');
+  assert(computeAlign([rectA], 'left').length === 0, 'alignment requires at least two elements');
+  assert(computeAlign([rectA, rectB], 'unknown-mode').length === 0, 'unknown modes must be a no-op');
+  ok('25. features (key fingerprints, schema 4, revocation, alignment)');
 
   console.log(`\nCertiForge logic tests: PASS (${passed} sections)`);
 })().catch(e => {

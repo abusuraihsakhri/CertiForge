@@ -42,3 +42,22 @@ test('deleting an element removes it from the layers panel', async ({ page }) =>
   await expect(page.locator('.element-row')).toHaveCount(count - 1);
   await expect(page.locator('#properties .empty')).toBeVisible();
 });
+
+test('shift-click multi-select enables the align toolbar', async ({ page }) => {
+  await page.click('#addTextBtn');
+  await page.fill('#propText', 'Alpha Label');
+  await page.locator('#propText').blur();
+  await page.click('#addTextBtn');
+
+  const alignLeft = page.locator('[data-align="left"]');
+  // Single selection keeps the toolbar disabled (aria-disabled = Playwright
+  // refuses to click it, which is the guard working).
+  await expect(alignLeft).toHaveAttribute('aria-disabled', 'true');
+
+  // …and a two-element selection enables alignment.
+  const alphaRow = page.locator('.element-item', { hasText: 'Alpha Label' });
+  await alphaRow.click({ modifiers: ['Shift'] });
+  await expect(alignLeft).toHaveAttribute('aria-disabled', 'false');
+  await alignLeft.click();
+  await expect(page.locator('.toast.show')).toContainText('Aligned selection');
+});

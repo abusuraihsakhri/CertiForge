@@ -3,7 +3,7 @@ import { templates, getTemplate } from './templates.js';
 import { templateSVG, loadTemplate } from './template-loader.js';
 import { variableKeys, columnToken, extractConferencePrefix, extractConferenceYear, formatId } from './variables.js';
 import { safeFilename, escapeHTML, toast, appConfirm, appPrompt } from './utils.js';
-import { renderCanvas } from './canvas.js';
+import { renderCanvas, applyAlign } from './canvas.js';
 import { renderCurrentEditor, addTextElement, addQRElement, addImageFile, loadCustomFont } from './editor.js';
 import { parseSpreadsheet } from './spreadsheet.js';
 import { validateRows, validateProject } from './validator.js';
@@ -12,7 +12,7 @@ import { saveProject, loadProjectFile } from './project.js';
 import { undo, redo } from './history.js';
 import { renderCertificateSVG } from './pdf.js';
 import { LEGACY_VERIFY_SALT } from './config.js';
-import { hasWebCrypto, encryptWithPassphrase, decryptWithPassphrase, exportPublicKeyJWK, exportPrivateKeyJWK, generateKeyPair } from './crypto.js';
+import { hasWebCrypto, encryptWithPassphrase, decryptWithPassphrase, exportPublicKeyJWK, exportPrivateKeyJWK, generateKeyPair, keyIdFromJwk } from './crypto.js';
 import { loadSigningKey, storeSigningKey } from './storage.js';
 
 export { updateGenerationProgress } from './progress.js';
@@ -131,6 +131,16 @@ function renderEditor(app) {
     <div class="canvas-toolbar">
       <div class="canvas-toolbar-group"><button class="tool-btn" id="undoBtn" title="Undo (Ctrl+Z)">↶</button><button class="tool-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)">↷</button></div>
       <div class="canvas-toolbar-title">Canvas</div>
+      <div class="canvas-toolbar-group align-group" title="Shift+click two or more elements, then align or distribute">
+        <button class="tool-btn" type="button" data-align="left" aria-disabled="true" aria-label="Align left edges" title="Align left edges">L</button>
+        <button class="tool-btn" type="button" data-align="hcenter" aria-disabled="true" aria-label="Align horizontal centers" title="Align horizontal centers">C</button>
+        <button class="tool-btn" type="button" data-align="right" aria-disabled="true" aria-label="Align right edges" title="Align right edges">R</button>
+        <button class="tool-btn" type="button" data-align="top" aria-disabled="true" aria-label="Align top edges" title="Align top edges">T</button>
+        <button class="tool-btn" type="button" data-align="vcenter" aria-disabled="true" aria-label="Align vertical centers" title="Align vertical centers">M</button>
+        <button class="tool-btn" type="button" data-align="bottom" aria-disabled="true" aria-label="Align bottom edges" title="Align bottom edges">B</button>
+        <button class="tool-btn" type="button" data-align="dist-h" aria-disabled="true" aria-label="Distribute horizontally" title="Distribute horizontally">⇄</button>
+        <button class="tool-btn" type="button" data-align="dist-v" aria-disabled="true" aria-label="Distribute vertically" title="Distribute vertically">⇅</button>
+      </div>
       <div class="canvas-toolbar-group zoom-group"><button class="tool-btn" data-zoom="fit" aria-pressed="true">Fit</button><button class="tool-btn" data-zoom="75" aria-pressed="false">75%</button><button class="tool-btn" data-zoom="100" aria-pressed="false">100%</button></div>
     </div>
     <div class="canvas-stage"><div id="editorCanvas"></div></div>
@@ -157,6 +167,13 @@ function renderEditor(app) {
   document.querySelectorAll("[data-zoom]").forEach(btn => btn.onclick = () => {
     _editorZoom = btn.dataset.zoom;
     applyEditorZoom();
+  });
+  app.querySelectorAll("[data-align]").forEach(btn => btn.onclick = () => {
+    if (btn.getAttribute("aria-disabled") === "true") {
+      toast("Shift+click two or more elements first, then align.");
+      return;
+    }
+    if (applyAlign(btn.dataset.align)) toast("Aligned selection.");
   });
   const layerCount = document.getElementById("layerCount");
   if (layerCount) layerCount.textContent = state.elements.length + " elements";
@@ -348,10 +365,11 @@ function renderGenerate(app) {
           <div id="ecdsaStatus" class="mini-help">Checking…</div>
           <div class="page-actions signing-actions">
             <button type="button" class="btn" id="exportKeyBtn" style="display:none">Export key backup</button>
+            <button type="button" class="btn" id="rotateKeyBtn" style="display:none">Rotate signing key</button>
             <button type="button" class="btn" id="importKeyBtn">Import key</button>
           </div>
           <input type="file" id="keyFileInput" accept=".json,application/json" hidden>
-          <p class="mini-help">When active, the portal verifies signatures with the published public key only.</p>
+          <p class="mini-help">When active, the portal verifies signatures with the published public key only. Rotation keeps the old key in the registry's keys map so prior certificates still verify.</p>
         </div>
       </div>
     </div>
@@ -413,11 +431,18 @@ function renderGenerate(app) {
   const keyFileInput = document.getElementById("keyFileInput");
 
   if (hasWebCrypto() && ecdsaStatus) {
-    loadSigningKey(state.projectName).then(existing => {
+    loadSigningKey(state.projectName).then(async existing => {
       if (existing) {
-        ecdsaStatus.innerHTML = '✓ ECDSA P-256 signing key active — certificates are cryptographically signed.';
+        try {
+          const fingerprint = await keyIdFromJwk(existing.publicKey);
+          ecdsaStatus.innerHTML = `✓ ECDSA P-256 signing key active — key fingerprint <code class="mono">${escapeHTML(fingerprint)}</code>.`;
+        } catch (_) {
+          ecdsaStatus.innerHTML = '✓ ECDSA P-256 signing key active — certificates are cryptographically signed.';
+        }
         ecdsaStatus.style.color = 'var(--color-secure-green)';
         if (exportKeyBtn) exportKeyBtn.style.display = '';
+        const rotateBtn = document.getElementById('rotateKeyBtn');
+        if (rotateBtn) rotateBtn.style.display = '';
       } else {
         ecdsaStatus.textContent = 'A signing key will be auto-created on first Generate.';
       }
@@ -445,6 +470,35 @@ function renderGenerate(app) {
     };
   }
 
+  const rotateBtn = document.getElementById("rotateKeyBtn");
+  if (rotateBtn) {
+    rotateBtn.onclick = async () => {
+      try {
+        if (!(await appConfirm("Rotate the signing key? Certificates generated from now on use the new key. Publish a fresh registry afterwards so the portal trusts both keys.", { title: "Rotate signing key", confirmLabel: "Rotate", danger: true }))) return;
+        // Preserve the retired key so previously issued certificates keep verifying.
+        const previous = await loadSigningKey(state.projectName);
+        if (previous) {
+          const prevKeyId = await keyIdFromJwk(previous.publicKey);
+          state._rotatedKeys = (Array.isArray(state._rotatedKeys) ? state._rotatedKeys : []).filter(k => k.keyId !== prevKeyId);
+          state._rotatedKeys.unshift({ keyId: prevKeyId, jwk: previous.publicKey });
+        }
+        const kp = await generateKeyPair();
+        const pubJWK = await exportPublicKeyJWK(kp.publicKey);
+        const privJWK = await exportPrivateKeyJWK(kp.privateKey);
+        await storeSigningKey(state.projectName, pubJWK, privJWK);
+        state._signingPublicKey = pubJWK;
+        state._signingKeyProjectName = state.projectName;
+        const newKeyId = await keyIdFromJwk(pubJWK);
+        state._signingKeyId = newKeyId;
+        if (ecdsaStatus) {
+          ecdsaStatus.innerHTML = `✓ New ECDSA P-256 key active — fingerprint <code class="mono">${escapeHTML(newKeyId)}</code>.`;
+          ecdsaStatus.style.color = 'var(--color-secure-green)';
+        }
+        toast(`Signing key rotated — new fingerprint ${newKeyId}. Re-generate the batch and re-publish the registry.`);
+      } catch (e) { toast("Key rotation failed: " + e.message); }
+    };
+  }
+
   if (importKeyBtn && keyFileInput) {
     importKeyBtn.onclick = () => keyFileInput.click();
     keyFileInput.onchange = async () => {
@@ -458,7 +512,12 @@ function renderGenerate(app) {
         const keyPair = await decryptWithPassphrase(data, passphrase);
         if (!keyPair.publicKey || !keyPair.privateKey) throw new Error("Backup did not contain a valid key pair.");
         await storeSigningKey(state.projectName, keyPair.publicKey, keyPair.privateKey);
-        toast("Signing key restored. Existing certificates remain valid.");
+        try {
+          const fingerprint = await keyIdFromJwk(keyPair.publicKey);
+          toast(`Signing key restored — fingerprint ${fingerprint}. Check it matches the key that issued your certificates.`);
+        } catch (_) {
+          toast("Signing key restored. Existing certificates remain valid.");
+        }
         // Refresh status
         if (ecdsaStatus) {
           ecdsaStatus.innerHTML = '✓ ECDSA P-256 signing key active — certificates are cryptographically signed.';
@@ -501,8 +560,37 @@ function renderGenerate(app) {
           <button class="btn" id="downloadRegistry">DOWNLOAD VERIFICATION REGISTRY (JSON)</button>
           <a href="verify.html" target="_blank" rel="noopener" class="btn ghost">OPEN VERIFICATION PORTAL ↗</a>
         </div>
-        <p class="mini-help" style="margin-top:12px">Publish the registry as <code>verification-registry.json</code> next to verify.html so QR scans confirm automatically. The registry is privacy-safe: it contains only certificate IDs and keyed digests — no participant names. ${state._signingPublicKey ? 'Certificates are signed with ECDSA P-256 — the registry includes your public key so the portal verifies cryptographically.' : 'Keep the signing secret private.'}</p>
+        ${result.registry.length ? `<div class="section-gap"></div>
+        <details class="inspector-section">
+          <summary>Revocation list (${result.registry.length} certificates)</summary>
+          <div class="inspector-section-body">
+            <p class="mini-help">Mark certificates to revoke, then re-download this registry and publish it. Revoked IDs show <strong>REVOKED</strong> on the verification portal regardless of their signature.</p>
+            <div id="revokeList" class="revoke-list">${result.registry.map(c => `
+              <label class="revoke-row"><input type="checkbox" data-revoke-id="${escapeHTML(c.id)}"> <span class="mono">${escapeHTML(c.id)}</span> <span class="revoke-name">${escapeHTML(c.name || "")}</span></label>`).join("")}
+            </div>
+          </div>
+        </details>` : ""}
+        <p class="mini-help" style="margin-top:12px">Publish the registry as <code>verification-registry.json</code> next to verify.html so QR scans confirm automatically. The registry is privacy-safe: it contains only certificate IDs and signatures — no participant names. ${state._signingPublicKey ? 'Certificates are signed with ECDSA P-256 — the registry includes your public key (schema 4) so the portal verifies cryptographically.' : 'Keep the signing secret private.'}</p>
       </div>`;
+
+      const revokeList = document.getElementById("revokeList");
+      if (revokeList) {
+        state.registry.forEach(c => { delete c.revoked; delete c.revokedAt; });
+        revokeList.querySelectorAll("[data-revoke-id]").forEach(box => {
+          box.onchange = () => {
+            const entry = state.registry.find(c => c.id === box.dataset.revokeId);
+            if (!entry) return;
+            if (box.checked) {
+              entry.revoked = true;
+              entry.revokedAt = new Date().toISOString();
+            } else {
+              delete entry.revoked;
+              delete entry.revokedAt;
+            }
+            markDirty();
+          };
+        });
+      }
 
       document.getElementById("downloadZip").onclick = async () => {
         try {

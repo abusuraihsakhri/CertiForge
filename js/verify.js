@@ -23,6 +23,7 @@ import { initTheme } from './theme.js';
 const esc = escapeHTML;
 const SIG_PATTERN = /^[a-zA-Z0-9_\-]{8,200}$/;
 const HASH_PATTERN = /^[a-f0-9]{64}$/i;
+const KEYID_PATTERN = /^[a-f0-9]{16}$/i;
 
 export function parseRecord(search) {
   const p = new URLSearchParams(search);
@@ -41,18 +42,32 @@ export function parseRecord(search) {
     organization: get('org', 'organization', 'o'),
     sig: get('sig', 's'),
     h: get('h'),
+    keyId: get('kid', 'keyid'),
     legacySecretPresent
   };
 }
 
 function norm(v) { return String(v ?? "").trim(); }
 
+function sanitizeKeyMap(rawKeys) {
+  if (!rawKeys || typeof rawKeys !== "object" || Array.isArray(rawKeys)) return undefined;
+  const keys = {};
+  for (const [id, jwk] of Object.entries(rawKeys).slice(0, 8)) {
+    if (!KEYID_PATTERN.test(norm(id))) continue;
+    if (!jwk || typeof jwk !== "object" || !jwk.kty || !jwk.crv || !jwk.x || !jwk.y) continue;
+    keys[norm(id)] = { kty: norm(jwk.kty), crv: norm(jwk.crv), x: norm(jwk.x), y: norm(jwk.y) };
+  }
+  return Object.keys(keys).length ? keys : undefined;
+}
+
 export function normalizeRegistry(raw) {
   if (!raw || typeof raw !== "object" || !Array.isArray(raw.certificates)) return null;
-  const schema = raw.schema === 3 ? 3 : raw.schema === 2 ? 2 : 1;
+  const schema = raw.schema === 4 ? 4 : raw.schema === 3 ? 3 : raw.schema === 2 ? 2 : 1;
+  const keys = schema === 4 ? sanitizeKeyMap(raw.keys) : undefined;
   return {
     schema,
-    publicKey: schema === 3 && raw.publicKey && raw.publicKey.kty ? raw.publicKey : undefined,
+    keys,
+    publicKey: schema >= 3 && raw.publicKey && raw.publicKey.kty ? raw.publicKey : undefined,
     event: norm(raw.event || raw.project || ""),
     organization: norm(raw.organization || ""),
     generatedAt: norm(raw.generatedAt || ""),
@@ -68,7 +83,10 @@ export function normalizeRegistry(raw) {
         organization: norm(c.organization),
         sig: norm(c.sig),
         h: norm(c.h),
-        filename: norm(c.filename)
+        filename: norm(c.filename),
+        keyId: KEYID_PATTERN.test(norm(c.keyId)) ? norm(c.keyId).toLowerCase() : undefined,
+        revoked: Boolean(c.revoked),
+        revokedAt: norm(c.revokedAt)
       }))
   };
 }
@@ -89,6 +107,9 @@ export function evaluateRecord(record, registry) {
   const wanted = norm(record.id).toUpperCase();
   const match = registry.certificates.find(c => norm(c.id).toUpperCase() === wanted);
   if (!match) return { status: 'not-found', id: record.id };
+  // Revocation is decided by the registry alone — a revoked certificate shows
+  // REVOKED even if its digest still matches.
+  if (match.revoked) return { status: 'revoked', match };
 
   const fields = [["Recipient", "name"], ["Role", "role"], ["Event", "event"], ["Issue date", "date"], ["Issuing authority", "organization"]];
   const diffs = fields
@@ -113,11 +134,16 @@ export async function evaluateEcdsaRecord(record, registry) {
   if (!SIG_PATTERN.test(norm(record.sig))) return { status: 'invalid', reason: "The supplied signature is missing or malformed." };
   if (!HASH_PATTERN.test(norm(record.h))) return { status: 'invalid', reason: "The supplied payload hash is missing or malformed." };
   if (!registry) return { status: 'no-registry' };
-  if (registry.schema !== 3 || !registry.publicKey) return { status: 'invalid', reason: "The active registry does not contain an ECDSA public key." };
+  if (registry.schema !== 3 && registry.schema !== 4) return { status: 'invalid', reason: "The active registry does not contain an ECDSA public key." };
+  const verifyingKey = (record.keyId && registry.keys && registry.keys[record.keyId]) || registry.publicKey;
+  if (!verifyingKey) return { status: 'invalid', reason: "The active registry does not contain an ECDSA public key." };
 
   const wanted = norm(record.id).toUpperCase();
   const match = registry.certificates.find(c => norm(c.id).toUpperCase() === wanted);
   if (!match) return { status: 'not-found', id: record.id };
+  // Revocation is decided by the registry alone — a revoked certificate shows
+  // REVOKED even if its signature would still verify.
+  if (match.revoked) return { status: 'revoked', match };
 
   if (!HASH_PATTERN.test(norm(match.h))) {
     return { status: 'invalid', match, reason: "The registry entry does not contain a valid payload hash." };
@@ -130,7 +156,7 @@ export async function evaluateEcdsaRecord(record, registry) {
   }
 
   try {
-    const publicKey = await importPublicKeyJWK(registry.publicKey);
+    const publicKey = await importPublicKeyJWK(verifyingKey);
     const valid = await verifySignature(publicKey, norm(record.h), norm(record.sig));
     return valid
       ? { status: 'verified', match }
@@ -150,7 +176,7 @@ export async function evaluateEcdsaRecord(record, registry) {
  *  - 'hmac': schema 1/2 pair-match fallback.
  */
 export function verificationGate(record, registry, cryptoAvailable = hasWebCrypto()) {
-  const wantsEcdsa = Boolean(record && norm(record.h) && registry && registry.schema === 3 && registry.publicKey);
+  const wantsEcdsa = Boolean(record && norm(record.h) && registry && registry.schema >= 3 && registry.schema <= 4 && (registry.publicKey || registry.keys));
   if (!wantsEcdsa) return 'hmac';
   return cryptoAvailable ? 'ecdsa' : 'crypto-unavailable';
 }
@@ -312,6 +338,34 @@ export function renderNotFound(card, record, registry) {
     </div>
     <div class="verify-body">
       <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Try Another Certificate</a></div>
+    </div>`;
+}
+
+export function renderRevoked(card, record, match, registry) {
+  card.innerHTML = `
+    <div class="verify-head">
+      <div class="status-badge failed">
+        <div class="status-icon" aria-hidden="true">✕</div>
+        <span>Certificate Revoked</span>
+      </div>
+      <h1 class="verify-title">This Certificate Has Been Revoked</h1>
+      <p class="verify-sub">The organizer's registry for <em>${esc(registry?.event || registry?.organization || 'this event')}</em> marks
+        certificate <strong>${esc(record.id || match.id)}</strong> as revoked${match.revokedAt ? ` (revoked ${esc(match.revokedAt)})` : ''}. Its credentials are no longer valid${match.revokedAt ? '' : ' — contact the organizer for details'}.</p>
+    </div>
+    <div class="verify-body">
+      <div class="detail-grid">${detailRows([
+        ["Certificate ID", record.id || match.id],
+        ["Recipient", match.name],
+        ["Event / Conference", match.event || registry?.event],
+        ["Issuing Authority", match.organization || registry?.organization],
+        ["Revoked at", match.revokedAt]
+      ])}</div>
+      <div class="security-notice">
+        <strong>Why REVOKED?</strong> The issuer published a revocation entry for this certificate ID. Even if the printed
+        signature is technically valid, the issuing authority has withdrawn the credential — the registry's revocation
+        status is final.
+      </div>
+      <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Verify Another</a></div>
     </div>`;
 }
 
@@ -486,6 +540,10 @@ async function init() {
         renderNotFound(card, record, loadedRegistry);
         return;
       }
+      if (outcome.status === 'revoked') {
+        renderRevoked(card, record, outcome.match, loadedRegistry);
+        return;
+      }
       if (outcome.status === 'mismatch' || outcome.status === 'invalid') {
         renderEcdsaMismatch(card, record, loadedRegistry);
         return;
@@ -509,6 +567,7 @@ async function init() {
     }, outcome.match);
     else if (outcome.status === 'mismatch') renderMismatch(card, record, outcome.match, outcome.diffs);
     else if (outcome.status === 'not-found') renderNotFound(card, record, loadedRegistry);
+    else if (outcome.status === 'revoked') renderRevoked(card, record, outcome.match, loadedRegistry);
     else renderUnconfirmed(card, record, outcome.status === 'invalid' ? outcome.reason : (record.legacySecretPresent
       ? "Links containing a signing secret are no longer supported — secret-bearing links could be forged. Scanning is verified only against the published registry."
       : null));

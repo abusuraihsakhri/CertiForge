@@ -47,6 +47,21 @@ test('a tampered payload hash fails signature verification', async ({ page }) =>
   await expect(page.getByText('Credential Cryptographically Verified')).toHaveCount(0);
 });
 
+test('a revoked certificate shows REVOKED even with valid signature material', async ({ page }) => {
+  const revokedRegistry = {
+    ...REGISTRY,
+    certificates: [
+      ...REGISTRY.certificates,
+      { id: 'E2E-2026-0002', sig: ecdsaSig, h: hashHex, revoked: true, revokedAt: '2026-10-01T00:00:00Z' }
+    ]
+  };
+  await page.route('**/verification-registry.json', route => route.fulfill({ json: revokedRegistry }));
+  await page.goto(`/verify.html?id=E2E-2026-0002&sig=${encodeURIComponent(ecdsaSig)}&h=${hashHex}`);
+  await expect(page.getByText('This Certificate Has Been Revoked')).toBeVisible();
+  await expect(page.getByText('Certificate Revoked')).toBeVisible();
+  await expect(page.getByText('Credential Cryptographically Verified')).toHaveCount(0);
+});
+
 test('an unregistered ID is rejected', async ({ page }) => {
   await serveRegistry(page);
   await page.goto(`/verify.html?id=NOPE-2026-9999&sig=${encodeURIComponent(ecdsaSig)}&h=${hashHex}`);

@@ -8,7 +8,7 @@ import { batchYieldEvery, workerPoolMax, LEGACY_VERIFY_SALT } from './config.js'
 import { updateGenerationProgress } from './progress.js';
 import { qrVendorAvailable } from './qrcode.js';
 import { SAFE_FONT_DATA_URL } from './security.js';
-import { hasWebCrypto, importPrivateKeyJWK, exportPublicKeyJWK, exportPrivateKeyJWK, signPayload } from './crypto.js';
+import { hasWebCrypto, importPrivateKeyJWK, exportPublicKeyJWK, exportPrivateKeyJWK, signPayload, keyIdFromJwk } from './crypto.js';
 import { loadSigningKey, storeSigningKey, pauseAutosave, resumeAutosave } from './storage.js';
 import { generateKeyPair } from './crypto.js';
 import { makeZip } from './zip.js';
@@ -457,25 +457,41 @@ async function generateAllWorker(jobs) {
 /**
  * Public verification registry, privacy-safe by construction: each entry is
  * only a certificate ID and its signature/digest. Names, roles, dates and
- * filenames never leave this machine. Schema 3 (with the ECDSA public key) is
- * emitted only when the cached signing key actually belongs to the CURRENT
- * project — a key loaded for an earlier project must never anchor this
- * registry's trust.
+ * filenames never leave this machine.
+ * Schema 4 carries a `keys` map keyed by public-key fingerprint (keyId) so
+ * entries can survive key rotation, plus per-entry revocation markers. The
+ * ECDSA public key is ALSO emitted as `publicKey` (schema-3 field) so older
+ * portals keep working. Schema 3/2 output is only produced when the cached
+ * signing key does not belong to the CURRENT project.
  */
 export function buildPublicRegistry() {
   const keyIsCurrent = Boolean(state._signingPublicKey) && state._signingKeyProjectName === state.projectName;
+  const keyId = keyIsCurrent ? (state._signingKeyId || undefined) : undefined;
+  const publicKey = keyIsCurrent ? state._signingPublicKey : undefined;
+  // Keys retired via "Rotate signing key" stay in the map so certificates
+  // issued under them keep verifying from the same published registry.
+  const rotated = (Array.isArray(state._rotatedKeys) ? state._rotatedKeys : []).slice(0, 4);
+  const schema = !keyIsCurrent ? 2 : (keyId ? 4 : 3);
   return {
-    schema: keyIsCurrent ? 3 : 2,
-    publicKey: keyIsCurrent ? state._signingPublicKey : undefined,
+    schema,
+    ...(publicKey ? {
+      publicKey,
+      keys: keyId ? { [keyId]: publicKey, ...Object.fromEntries(rotated.filter(k => k.keyId && k.jwk).map(k => [k.keyId, k.jwk])) } : undefined
+    } : {}),
     event: String(state.globalFields?.EVENT || ""),
     organization: String(state.globalFields?.ORGANIZATION || ""),
     project: state.projectName,
     generatedAt: new Date().toISOString(),
     signature: keyIsCurrent
-      ? { algorithm: "ecdsa-p256", hash: "sha256-canonical-payload", fields: ["id", "name", "role", "event", "date", "organization"] }
+      ? { algorithm: "ecdsa-p256", hash: "sha256-canonical-payload", fields: ["id", "name", "role", "event", "date", "organization"], ...(keyId ? { keyId } : {}) }
       : { algorithm: "sha256-v2", encoding: "first 16 hex chars", fields: ["id", "name", "role", "event", "date", "organization"] },
     totalCertificates: (state.registry || []).length,
-    certificates: (state.registry || []).map(c => ({ id: c.id, sig: c.sig, ...(c.h ? { h: c.h } : {}) }))
+    certificates: (state.registry || []).map(c => ({
+      id: c.id,
+      sig: c.sig,
+      ...(c.h ? { h: c.h } : {}),
+      ...(c.revoked ? { revoked: true, ...(c.revokedAt ? { revokedAt: c.revokedAt } : {}) } : {})
+    }))
   };
 }
 
@@ -522,6 +538,7 @@ export async function generateAll() {
   if (jobsResult.publicKeyJWK) {
     state._signingPublicKey = jobsResult.publicKeyJWK;
     state._signingKeyProjectName = state.projectName;
+    state._signingKeyId = await keyIdFromJwk(jobsResult.publicKeyJWK);
   }
 
   try {

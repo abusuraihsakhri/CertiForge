@@ -47,6 +47,7 @@ export async function applySanitizedState(patch) {
   // project — its public key must never anchor this project's registry.
   delete state._signingPublicKey;
   delete state._signingKeyProjectName;
+  delete state._signingKeyId;
   for (const f of state.fonts) {
     try {
       const ff = new FontFace(f.family, `url(${f.data})`);

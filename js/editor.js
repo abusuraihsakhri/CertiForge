@@ -1,6 +1,6 @@
 import { state, markDirty } from './state.js';
 import { getTemplate } from './templates.js';
-import { renderCanvas } from './canvas.js';
+import { renderCanvas, setSelection } from './canvas.js';
 import { pushHistory } from './history.js';
 import { clearSvgCache } from './pdf.js';
 import { escapeHTML, uid, clampNum } from './utils.js';
@@ -41,7 +41,7 @@ export function addTextElement() {
   const t = getTemplate(state.templateId);
   const e = { id: uid("text"), type: "text", text: "New text", x: Math.round(t.page.width / 2), y: Math.round(t.page.height / 2), w: 600, size: 22, weight: 400, align: "center", font: "Arial", color: "#17191d", lineHeight: 1.25 };
   state.elements.push(e);
-  state.selectedElement = e.id;
+  setSelection([e.id], e.id);
   _lastRenderedElId = null;
   renderCurrentEditor();
   pushHistory();
@@ -132,10 +132,24 @@ export function renderCurrentEditor() {
       </div>`;
     }).join("");
 
-    list.querySelectorAll("[data-el]").forEach(b => b.onclick = () => { state.selectedElement = b.dataset.el; renderCurrentEditor(); });
+    list.querySelectorAll("[data-el]").forEach(b => b.onclick = (ev) => {
+      const id = b.dataset.el;
+      if (ev.shiftKey) {
+        const cur = Array.isArray(state.selectedElements) ? state.selectedElements : (state.selectedElement ? [state.selectedElement] : []);
+        const set = new Set(cur);
+        if (set.has(id)) set.delete(id); else set.add(id);
+        setSelection([...set], set.has(state.selectedElement) ? state.selectedElement : id);
+      } else {
+        setSelection([id], id);
+      }
+      renderCurrentEditor();
+    });
     list.querySelectorAll("[data-layer-up]").forEach(b => b.onclick = () => moveLayer(b.dataset.layerUp, 'up'));
     list.querySelectorAll("[data-layer-down]").forEach(b => b.onclick = () => moveLayer(b.dataset.layerDown, 'down'));
   }
+  // Align/distribute buttons stay disabled until ≥2 elements are selected.
+  const selCount = (Array.isArray(state.selectedElements) ? state.selectedElements : (state.selectedElement ? [state.selectedElement] : [])).length;
+  document.querySelectorAll("[data-align]").forEach(b => b.setAttribute("aria-disabled", String(selCount < 2)));
   renderProperties();
 }
 

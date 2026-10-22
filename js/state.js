@@ -15,6 +15,7 @@ function baseDefaults() {
     templateId: "modern",
     elements: [],
     selectedElement: null,
+    selectedElements: [],
     rows: [],
     columns: [],
     mappings: {},

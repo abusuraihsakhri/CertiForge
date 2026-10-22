@@ -44,6 +44,18 @@ export async function importPrivateKeyJWK(jwk) {
   return crypto.subtle.importKey('jwk', jwk, ECDSA_PARAMS, false, ['sign']);
 }
 
+/**
+ * Stable public fingerprint of a signing key: SHA-256 over the canonical
+ * public JWK fields (kty/crv/x/y), first 16 hex chars. Registries and the
+ * portal display this so verifiers can see WHICH key an issuer used, and
+ * issuers can detect a wrong-key restore.
+ */
+export async function keyIdFromJwk(publicJwk) {
+  const canonical = JSON.stringify({ crv: publicJwk.crv, kty: publicJwk.kty, x: publicJwk.x, y: publicJwk.y });
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  return Array.from(new Uint8Array(digest).slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // ---- Signing / verification ----
 
 function hexToBytes(hex) {

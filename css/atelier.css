@@ -241,6 +241,16 @@ p.lead{color:var(--text-secondary)}
 .app-dialog-body p{margin:0 0 12px}
 .app-dialog-actions{margin-top:16px;justify-content:flex-end}
 
+/* Revocation list */
+.revoke-list{max-height:240px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;display:grid;gap:2px}
+.revoke-row{display:flex;align-items:center;gap:8px;padding:4px 2px;cursor:pointer}
+.revoke-row .revoke-name{color:var(--text-secondary);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.code.mono,code.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+
+/* Multi-select alignment toolbar */
+.align-group{display:flex;gap:4px}
+.tool-btn[aria-disabled="true"]{opacity:.4;cursor:default}
+
 /* Template gallery */
 .filter-bar .btn{border-radius:999px}
 .template-grid{gap:12px}

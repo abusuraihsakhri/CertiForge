@@ -24,6 +24,7 @@ const ASSETS = [
   './js/variables.js',
   './js/spreadsheet.js',
   './js/mapping.js',
+  './js/align.js',
   './js/validator.js',
   './js/canvas.js',
   './js/editor.js',

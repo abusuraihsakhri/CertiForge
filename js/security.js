@@ -160,6 +160,7 @@ export function sanitizeProjectState(data, defaults) {
     settings: sanitizeSettings(data.settings, defaults.settings),
     fonts: sanitizeFonts(data.fonts),
     selectedElement: null,
+    selectedElements: [],
     rows: [],
     columns: [],
     sampleIndex: 0,

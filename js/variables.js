@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { verifyBaseUrl } from './config.js';
+import { verifyBaseUrl, fileVerifyFallback } from './config.js';
 
 export const variableKeys = [
   "NAME", "ROLE", "EVENT", "DATE", "VENUE",
@@ -90,14 +90,27 @@ export function extractConferenceYear(name) {
   return m ? m[1] : String(new Date().getFullYear());
 }
 
-export function getVerificationBaseUrl(loc = (typeof window !== 'undefined' ? window.location : null)) {
+/**
+ * Resolve the verification QR target.
+ *  - A configured absolute http(s) `verifyBaseUrl` is authoritative on every
+ *    origin — this is what makes self-hosted (VPS) verification portals work.
+ *  - Otherwise an http(s) studio origin uses its own verify.html.
+ *  - Otherwise (file:// / null origin) the deployment fallback applies.
+ */
+export function getVerificationBaseUrl(loc = (typeof window !== 'undefined' ? window.location : null), configuredBase = verifyBaseUrl) {
+  if (configuredBase) {
+    try {
+      const u = new URL(configuredBase);
+      if (/^https?:$/.test(u.protocol)) return configuredBase;
+    } catch (_) { /* invalid config falls through to origin resolution */ }
+  }
   const origin = loc && loc.origin;
   if (loc && origin && origin !== 'null' && /^https?:/i.test(origin)) {
     const path = String(loc.pathname || '');
     const dir = path.slice(0, path.lastIndexOf('/') + 1);
     return `${origin}${dir}verify.html`;
   }
-  return verifyBaseUrl;
+  return fileVerifyFallback;
 }
 
 export function canonicalSignatureFields(data = {}) {
