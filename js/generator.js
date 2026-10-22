@@ -199,16 +199,22 @@ async function staticCanvasFromPng(buffer, scale) {
 }
 
 /**
- * Convert custom font data URLs to blob URLs once so the batch ships string
- * references to workers instead of cloning every base64 font into each of up
- * to 8 workers. Callers revoke the URLs when the pool shuts down.
+ * Convert custom fonts to blob URLs once so the batch ships string references
+ * to workers instead of cloning every base64 font into each of up to 8
+ * workers. The base64 payload is decoded directly (a fetch() of a data: URL
+ * would be blocked by the studio CSP's connect-src 'self'); the allowlist was
+ * already enforced by sanitizeFonts/loading. Callers revoke the URLs when the
+ * pool shuts down.
  */
 async function fontPayload() {
   const fonts = (state.fonts || []).filter(f => f && f.family && SAFE_FONT_DATA_URL.test(String(f.data || '').trim()));
-  return Promise.all(fonts.map(async f => ({
-    family: f.family,
-    url: URL.createObjectURL(await (await fetch(String(f.data))).blob())
-  })));
+  return Promise.all(fonts.map(async f => {
+    const b64 = String(f.data).split(',')[1] || '';
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { family: f.family, url: URL.createObjectURL(new Blob([bytes], { type: 'font/woff2' })) };
+  }));
 }
 
 /**

@@ -1,4 +1,4 @@
-const CACHE = 'certiforge-v0.8.1';
+const CACHE = 'certiforge-v0.9.0';
 const ASSETS = [
   './',
   './index.html',
