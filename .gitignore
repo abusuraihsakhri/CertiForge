@@ -2,3 +2,7 @@ node_modules/
 .commandcode/
 *.log
 .DS_Store
+test-results/
+playwright-report/
+bun.lock
+npm_debug.log

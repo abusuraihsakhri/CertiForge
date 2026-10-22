@@ -12,14 +12,14 @@ function normalizeHeader(raw, index, used) {
 
 // RFC 4180 parser: quoted fields, escaped quotes, CRLF, UTF-8 BOM,
 // ragged rows (columns unified across the sheet), duplicate headers disambiguated.
-export function parseCSV(text) {
+export function parseCSV(text, delimiter = ",") {
   const rows = []; let row = [], cell = "", quoted = false;
   const src = String(text ?? "").replace(/^\uFEFF/, "");
   for (let i = 0; i < src.length; i++) {
     const ch = src[i], next = src[i + 1];
     if (ch === '"' && quoted && next === '"') { cell += '"'; i++; continue; }
     if (ch === '"') { quoted = !quoted; continue; }
-    if (ch === ',' && !quoted) { row.push(cell); cell = ""; continue; }
+    if (ch === delimiter && !quoted) { row.push(cell); cell = ""; continue; }
     if ((ch === '\n' || ch === '\r') && !quoted) {
       if (ch === '\r' && next === '\n') i++;
       row.push(cell); cell = "";
@@ -50,6 +50,24 @@ function columnUnion(rows) {
   return cols;
 }
 
+// Pick the delimiter from the data itself (outside quotes) instead of
+// pre-replacing tabs: a blanket tab→comma swap corrupted quoted fields
+// containing literal tabs. Ties and unlisted delimiters fall back to comma.
+export function detectDelimiter(text) {
+  const src = String(text ?? "").replace(/^\uFEFF/, "");
+  const lines = src.split(/\r?\n/).filter(l => l.trim()).slice(0, 5);
+  const counts = { ",": 0, "\t": 0, ";": 0 };
+  for (const line of lines) {
+    let quoted = false;
+    for (const ch of line) {
+      if (ch === '"') quoted = !quoted;
+      else if (ch in counts && !quoted) counts[ch]++;
+    }
+  }
+  const [best, count] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return count > 0 ? best : ",";
+}
+
 export async function parseSpreadsheet(file) {
   if (!file || !file.name) throw new Error("No file was provided.");
   if (file.size && file.size > maxSpreadsheetBytes) throw new Error("Spreadsheet is too large. Split it into smaller files (20 MB limit) or trim unused columns.");
@@ -59,9 +77,8 @@ export async function parseSpreadsheet(file) {
   let sheetInfo = { totalSheets: 1, sheetName: "" };
 
   if (ext === 'csv' || ext === 'tsv') {
-    let text = await file.text();
-    if (ext === 'tsv') text = text.replace(/\t/g, ',');
-    rows = parseCSV(text);
+    const text = await file.text();
+    rows = parseCSV(text, detectDelimiter(text));
   } else {
     const xlsxLib = (typeof window !== 'undefined' && window.XLSX) || (typeof globalThis !== 'undefined' && globalThis.XLSX);
     if (!xlsxLib) throw new Error("Excel support could not load. Reload the page, or save the file as CSV and try again.");

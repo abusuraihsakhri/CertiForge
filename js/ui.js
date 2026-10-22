@@ -298,7 +298,7 @@ function renderGenerate(app) {
   if (!state.mappings.NAME) { go("mapping"); return; }
   const val = validateRows();
   const batchCount = generationRows().length;
-  if (state.settings.verifySecret === LEGACY_VERIFY_SALT) toast("Signing secret is the publicly known legacy default — click Randomize to make signatures private again.");
+  if (state.settings.verifySecret === LEGACY_VERIFY_SALT) toast("Certificates cannot be generated with the publicly known legacy default secret — click Randomize first.");
   app.innerHTML = `<div class="page"><div class="page-head"><div><div class="eyebrow">06 / GENERATE</div><h1>Generate your certificate batch.</h1><p class="lead">Review output settings, signing, and the final batch count before creating PDFs.</p></div></div>
   <div class="generate-grid">
     <div class="card panel">
@@ -487,9 +487,11 @@ function renderGenerate(app) {
     try {
       const result = await generateAll();
       if (cancelBtn.parentElement) cancelBtn.remove();
+      if (result.fontWarnings?.length) toast(`Some custom fonts failed to embed (${result.fontWarnings.join(", ")}). Those certificates use fallback fonts.`);
+      if (result.signFailures) toast(`${result.signFailures} record(s) skipped: signing failed. Check the console for details.`);
       document.getElementById("resultCard").innerHTML = `<div class="card panel result-card">
         <h2>Generation complete</h2>
-        <p class="lead">${result.files.length} PDFs are ready${result.skipped ? `; ${result.skipped} invalid row(s) were skipped` : ""}.</p>
+        <p class="lead">${result.files.length} PDFs are ready${result.skipped ? `; ${result.skipped} invalid row(s) were skipped` : ""}${result.signFailures ? `; ${result.signFailures} record(s) skipped (signing failed)` : ""}.</p>
         <div class="section-gap"></div>
         <div class="page-actions">
           <button class="btn primary" id="downloadZip">DOWNLOAD ZIP (${result.files.length} PDFs)</button>

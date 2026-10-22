@@ -68,12 +68,13 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   const { renderCertificateSVG, buildSvgSkeleton, clearSvgCache, wrapToLines } = await import('../js/pdf.js');
   const { generateAll, isWorkerSupported, generationRows, isGenerating, cancelGeneration, buildPublicRegistry } = await import('../js/generator.js');
   const cryptoModule = await import('../js/crypto.js');
-  const { loadProjectFile, SAFE_FONT_DATA_URL, projectData } = await import('../js/project.js');
+  const { loadProjectFile, applySanitizedState, SAFE_FONT_DATA_URL, projectData } = await import('../js/project.js');
   const { pushHistory, resetHistory, undo, redo } = await import('../js/history.js');
   const { sanitizeProjectState, detectFontFormat, normalizeFontDataUrl } = await import('../js/security.js');
   const { LEGACY_VERIFY_SALT, verifyBaseUrl } = await import('../js/config.js');
+  const { qrVendorAvailable } = await import('../js/qrcode.js');
   const ui = await import('../js/ui.js');
-  const { parseRecord, normalizeRegistry, evaluateRecord, evaluateEcdsaRecord, renderUnconfirmed, renderVerified, renderEcdsaVerified, renderEcdsaMismatch } = await import('../js/verify.js');
+  const { parseRecord, normalizeRegistry, evaluateRecord, evaluateEcdsaRecord, verificationGate, renderCryptoLimited, renderUnconfirmed, renderVerified, renderEcdsaVerified, renderEcdsaMismatch } = await import('../js/verify.js');
   const {
     extractConferencePrefix,
     extractConferenceYear,
@@ -397,6 +398,12 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   const indexHtmlSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert(/script-src 'self'(?!!)/.test(indexHtmlSource), 'index.html CSP must drop unsafe-inline for scripts');
   assert(/role="status"/.test(indexHtmlSource) && /aria-live="polite"/.test(indexHtmlSource), 'toast must be an aria-live status region');
+  // Font/CSP consistency: the shared stylesheet must not @import cross-origin
+  // fonts, because verify.html loads it under a CSP with no third-party origins.
+  assert(!verifyHtmlSource.includes('fonts.googleapis'), 'verify portal must not depend on third-party font origins');
+  const mainCss = fs.readFileSync(path.join(__dirname, '..', 'css/main.css'), 'utf8');
+  assert(!/@import/.test(mainCss), 'css/main.css must not @import cross-origin fonts (verify.html loads it under a stricter CSP)');
+  assert(/fonts\.googleapis\.com\/css2/.test(indexHtmlSource), 'index.html must load the web font via a link tag matching its CSP origins');
   ok('15. verification portal trust model + CSP');
 
   // 15b. ECDSA P-256 signing, schema-3 registry, portal verification, passphrase encryption
@@ -465,12 +472,14 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   // Schema-3 registry with ECDSA + payload hash in public registry output
   state.registry = [{ id: 'CERT-ECDSA-1', sig: ecdsaSig, h: testHash, name: 'Alice', role: 'Speaker', event: 'ICML 2026', date: '20 Sep 2026', organization: 'Society', filename: 'cert.pdf' }];
   state._signingPublicKey = pubJWK;
+  state._signingKeyProjectName = state.projectName;
   const pubReg3 = buildPublicRegistry();
   assert(pubReg3.schema === 3, 'buildPublicRegistry must emit schema 3 when signing key present');
   assert(pubReg3.publicKey && pubReg3.publicKey.kty === 'EC', 'buildPublicRegistry must include publicKey');
   assert(pubReg3.certificates[0].h === testHash, 'buildPublicRegistry must include payload hash');
   assert(!JSON.stringify(pubReg3).includes('Alice'), 'buildPublicRegistry must not leak names even in schema 3');
   delete state._signingPublicKey;
+  delete state._signingKeyProjectName;
   ok('15b. ECDSA P-256 signing, schema-3 registry, portal verification');
 
   // 16. Web Worker batch offloading: init handshake, per-record error isolation, fallback
@@ -593,6 +602,10 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
     if (asset === './') continue;
     assert(fs.existsSync(path.join(__dirname, '..', asset.replace(/^\.\//, ''))), `Service worker asset missing on disk: ${asset}`);
   }
+  // Reverse check: every shipped module must be precached — a module present on
+  // disk but absent from ASSETS breaks offline only after first online use.
+  const jsModules = fs.readdirSync(path.join(__dirname, '..', 'js')).filter(f => f.endsWith('.js'));
+  jsModules.forEach(f => assert(swAssets.includes(`./js/${f}`), `sw.js ASSETS must precache js/${f}`));
   assert(/url\.search/.test(swCode) && /cacheable/.test(swCode), 'sw must refuse caching of query-string URLs (PII guard)');
   assert(/mode === 'navigate'/.test(swCode), 'sw offline shell fallback must apply to navigations only');
   assert(/allSettled/.test(swCode), 'sw install must be resilient to individual asset failures');
@@ -620,6 +633,109 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
     assert(t.elements.some(e => /certificate-id|^id$/.test(e.id || '')), `Template ${t.id} must retain a certificate identifier layer`);
   });
   ok('21. editorial design system integration');
+
+  // 22. Batch hardening: strict QR, legacy-salt block, key binding, signing isolation, delimiters
+  // (a) A failed QR must never reach final output — placeholder is preview-only.
+  const savedQr = global.qrcode;
+  global.qrcode = undefined;
+  state.templateId = 'modern';
+  state.elements = [
+    { id: 't1', type: 'text', text: 'Hello', x: 50, y: 50, size: 10 },
+    { id: 'qr_x', type: 'qr', text: '{{VERIFY_URL}}', x: 100, y: 100, w: 80 }
+  ];
+  assert(qrVendorAvailable() === false, 'qrVendorAvailable must report the vendor library as unavailable');
+  const previewSvg = renderCertificateSVG({ NAME: 'P' }, 0);
+  assert(previewSvg.includes('image/svg+xml'), 'preview may keep the placeholder QR');
+  let strictThrew = false;
+  try { renderCertificateSVG({ NAME: 'P' }, 0, undefined, { strict: true }); }
+  catch (e) { strictThrew = /QR verification code/.test(e.message); }
+  assert(strictThrew, 'strict render must throw instead of shipping a placeholder QR');
+  global.qrcode = savedQr;
+  assert(qrVendorAvailable() === true, 'qrVendorAvailable must recover when the vendor library is present');
+
+  // (b) The publicly known legacy default secret blocks generation + validation.
+  state.elements = getTemplate('modern').elements.map(e => ({ ...e }));
+  state.rows = [{ 'Participant Name': 'A' }, { 'Participant Name': 'B' }];
+  state.columns = ['Participant Name'];
+  autoMap();
+  state.settings.verifySecret = LEGACY_VERIFY_SALT;
+  assert(validateProject().valid === false, 'legacy default secret must fail validation');
+  let legacyThrew = false;
+  try { await generateAll(); } catch (e) { legacyThrew = /legacy default/i.test(e.message); }
+  assert(legacyThrew, 'generateAll must refuse the legacy default signing secret');
+  state.settings.verifySecret = 'a-random-test-secret';
+
+  // (c) A signing key from another project must never anchor this registry.
+  const kpX = await cryptoModule.generateKeyPair();
+  const pubX = await cryptoModule.exportPublicKeyJWK(kpX.publicKey);
+  state.registry = [{ id: 'K-1', sig: 'x', h: 'a'.repeat(64) }];
+  state.projectName = 'Project Now';
+  state._signingPublicKey = pubX;
+  state._signingKeyProjectName = 'Project Before';
+  assert(buildPublicRegistry().schema === 2, "another project's key must not anchor this registry");
+  state._signingKeyProjectName = 'Project Now';
+  assert(buildPublicRegistry().schema === 3, 'the current project key must anchor the registry');
+  await applySanitizedState(sanitizeProjectState({ elements: [], templateId: 'modern' }, defaultState()));
+  assert(!state._signingPublicKey && !state._signingKeyProjectName, 'project switch must clear cached signing keys');
+  delete state._signingPublicKey;
+  delete state._signingKeyProjectName;
+
+  // (d) One signing failure skips only that record — the batch still completes.
+  state.templateId = 'modern';
+  state.elements = getTemplate('modern').elements.map(e => ({ ...e }));
+  state.rows = [{ 'Participant Name': 'S One' }, { 'Participant Name': 'S Two' }];
+  state.columns = ['Participant Name'];
+  autoMap();
+  state.settings.filename = '{{NAME}}.pdf';
+  const realSign = globalThis.crypto.subtle.sign.bind(globalThis.crypto.subtle);
+  let signCalls = 0;
+  globalThis.crypto.subtle.sign = async (...a) => { if (++signCalls === 1) throw new Error('simulated signer failure'); return realSign(...a); };
+  let signIso;
+  try { signIso = await generateAll(); } finally { globalThis.crypto.subtle.sign = realSign; }
+  assert(signIso.files.length === 1 && signIso.signFailures === 1, 'one signing failure must skip only that record');
+  assert(signIso.registry.length === 1, 'registry must cover exactly the successfully signed records');
+
+  // (e) Worker font failures must surface instead of failing silently.
+  class FontFailWorker {
+    constructor() { this.onmessage = null; this.onerror = null; }
+    postMessage(msg) {
+      setTimeout(() => {
+        if (!this.onmessage) return;
+        if (msg.type === 'init') { this.onmessage({ data: { type: 'ready', failedFonts: ['TestFont'] } }); return; }
+        if (msg.type === 'render') {
+          const pngHeader = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]);
+          this.onmessage({ data: { type: 'rendered', id: msg.id, buffer: pngHeader.buffer } });
+        }
+      }, 1);
+    }
+    terminate() {}
+  }
+  global.Worker = FontFailWorker;
+  global.OffscreenCanvas = class { constructor() {} };
+  const fontFailResult = await generateAll();
+  assert(fontFailResult.files.length === 2, 'font-failure batch still completes');
+  assert(fontFailResult.fontWarnings.includes('TestFont'), 'worker font failures must surface to the caller');
+  delete global.Worker;
+  delete global.OffscreenCanvas;
+
+  // (f) Delimiter detection: quoted tabs survive; semicolon files parse.
+  await parseSpreadsheet({ name: 'data.tsv', size: 100, text: async () => 'Name\tNote\n"A\tB"\tSpeaker\n' });
+  assert(state.rows[0].Name === 'A\tB' && state.rows[0].Note === 'Speaker', 'a quoted tab inside a TSV field must survive');
+  await parseSpreadsheet({ name: 'data.csv', size: 100, text: async () => 'Name;Note\nDoe;Speaker\n' });
+  assert(state.rows[0].Name === 'Doe' && state.rows[0].Note === 'Speaker', 'semicolon-delimited files must parse');
+  ok('22. batch hardening (strict QR, legacy salt, key binding, signing isolation, delimiters)');
+
+  // 23. Portal crypto gate: "verified" is never claimed without cryptography
+  const reg3Gate = normalizeRegistry({ schema: 3, publicKey: pubJWK, event: 'E', certificates: [{ id: 'G-1', sig: ecdsaSig, h: testHash }] });
+  assert(verificationGate({ id: 'G-1', sig: ecdsaSig, h: testHash }, reg3Gate) === 'ecdsa', 'schema-3 + hash + crypto must take the ECDSA path');
+  assert(verificationGate({ id: 'G-1', sig: ecdsaSig }, reg3Gate) === 'hmac', 'no hash in the QR must stay on the pair-match path');
+  assert(verificationGate({ id: 'G-1', sig: ecdsaSig, h: testHash }, { schema: 2, certificates: [] }) === 'hmac', 'schema-2 registry must stay on pair-match');
+  assert(verificationGate({ id: 'G-1', sig: ecdsaSig, h: testHash }, reg3Gate, false) === 'crypto-unavailable', 'without WebCrypto the ECDSA path must be blocked, not downgraded');
+  const gateCard = { innerHTML: '' };
+  renderCryptoLimited(gateCard, { id: 'G-1', sig: ecdsaSig, h: testHash }, reg3Gate);
+  assert(gateCard.innerHTML.includes('Verification Limited'), 'crypto-limited card must render');
+  assert(!gateCard.innerHTML.includes('Credential Cryptographically Verified') && !gateCard.innerHTML.includes('Credential Verified'), 'crypto-limited card must never claim verification');
+  ok('23. portal crypto gate');
 
   console.log(`\nCertiForge logic tests: PASS (${passed} sections)`);
 })().catch(e => {

@@ -43,6 +43,10 @@ export function saveProject() {
 
 export async function applySanitizedState(patch) {
   Object.assign(state, patch);
+  // A project switch invalidates any signing key cached for the previous
+  // project — its public key must never anchor this project's registry.
+  delete state._signingPublicKey;
+  delete state._signingKeyProjectName;
   for (const f of state.fonts) {
     try {
       const ff = new FontFace(f.family, `url(${f.data})`);

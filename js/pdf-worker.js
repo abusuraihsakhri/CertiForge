@@ -25,22 +25,25 @@ ctx.onmessage = async function (e) {
 
     // Load any custom fonts into worker scope FontFaceSet if supported.
     // Only allow-listed data URLs are registered.
+    const failedFonts = [];
     if (currentFonts.length && typeof ctx.FontFace !== 'undefined' && ctx.fonts) {
       for (const font of currentFonts) {
-        if (font && font.family && SAFE_FONT_DATA_URL.test(String(font.data || '').trim())) {
-          try {
-            const fontFace = new ctx.FontFace(font.family, `url(${String(font.data).trim()})`);
-            const loaded = await fontFace.load();
-            ctx.fonts.add(loaded);
-          } catch (_) {
-            // Font loading failures in worker shouldn't block rendering
-          }
+        if (!font || !font.family) continue;
+        if (!SAFE_FONT_DATA_URL.test(String(font.data || '').trim())) { failedFonts.push(String(font.family)); continue; }
+        try {
+          const fontFace = new ctx.FontFace(font.family, `url(${String(font.data).trim()})`);
+          const loaded = await fontFace.load();
+          ctx.fonts.add(loaded);
+        } catch (_) {
+          // Font loading failures in worker shouldn't block rendering, but the
+          // organizer must hear that fallback fonts were used.
+          failedFonts.push(String(font.family));
         }
       }
     }
     // Handshake: the pool only dispatches render tasks after this reply, so the
     // first certificates can never rasterize before custom fonts are registered.
-    ctx.postMessage({ type: 'ready' });
+    ctx.postMessage({ type: 'ready', failedFonts });
     return;
   }
 

@@ -79,6 +79,8 @@ async function init() {
   document.getElementById("newProjectBtn").onclick = () => {
     if (state.dirtySinceSave && !confirm("Start a new project? Unsaved design changes will be lost.")) return;
     Object.assign(state, defaultState());
+    delete state._signingPublicKey;
+    delete state._signingKeyProjectName;
     clearAutosave();
     loadTemplate("modern");
     go("templates");

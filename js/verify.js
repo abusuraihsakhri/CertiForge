@@ -140,6 +140,21 @@ export async function evaluateEcdsaRecord(record, registry) {
   }
 }
 
+/**
+ * Decide which verification path a scanned record takes. Exported pure so the
+ * trust gating is unit-testable.
+ *  - 'ecdsa': schema-3 registry + payload hash + working WebCrypto — the strong path.
+ *  - 'crypto-unavailable': the record and registry are ECDSA-intended but this
+ *    browser context cannot run crypto — the portal must NEVER fall through to
+ *    a string-match "verified" result in this state.
+ *  - 'hmac': schema 1/2 pair-match fallback.
+ */
+export function verificationGate(record, registry, cryptoAvailable = hasWebCrypto()) {
+  const wantsEcdsa = Boolean(record && norm(record.h) && registry && registry.schema === 3 && registry.publicKey);
+  if (!wantsEcdsa) return 'hmac';
+  return cryptoAvailable ? 'ecdsa' : 'crypto-unavailable';
+}
+
 function detailRows(pairs) {
   return pairs.filter(([, v]) => norm(v) !== "").map(([label, v]) =>
     `<div class="detail-item"><span class="detail-label">${esc(label)}</span><span class="detail-val ${label === "Certificate ID" || label.includes("Digest") ? "mono" : ""}">${esc(v)}</span></div>`
@@ -300,6 +315,32 @@ export function renderNotFound(card, record, registry) {
     </div>`;
 }
 
+export function renderCryptoLimited(card, record, registry) {
+  const supplied = {
+    "Certificate ID": record.id,
+    "Payload hash": record.h || "",
+    "QR signature (unverified)": record.sig
+  };
+  card.innerHTML = `
+    <div class="verify-head">
+      <div class="status-badge pending">
+        <div class="status-icon" aria-hidden="true">…</div>
+        <span>Verification Limited</span>
+      </div>
+      <h1 class="verify-title">Cryptographic Verification Unavailable</h1>
+      <p class="verify-sub">This certificate is registered by <em>${esc(registry?.event || registry?.organization || 'the organizer')}</em>, but this browser context cannot run cryptographic verification (WebCrypto is unavailable — typically an insecure connection). The signature could not be checked, so treat this result as unconfirmed.</p>
+    </div>
+    <div class="verify-body">
+      <div class="detail-grid">${detailRows(Object.entries(supplied))}</div>
+      <div class="security-notice">
+        <strong>Why no green tick?</strong> An ECDSA-signed certificate is only confirmed by actually verifying the
+        signature. When crypto is unavailable this page refuses to show a verified result — an exact string match
+        alone is not proof of authenticity. Open this page over HTTPS (or localhost) and scan again.
+      </div>
+      <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Try Again</a></div>
+    </div>`;
+}
+
 export function renderUnconfirmed(card, record, reason) {
   const supplied = {
     Recipient: record.name,
@@ -430,12 +471,12 @@ async function init() {
   const record = parseRecord(window.location.search);
 
   if (record.id && record.sig) {
-    // ECDSA path: when the registry carries a public key and the QR carries a
-    // payload hash, verify the signature cryptographically. This is the
-    // strongest path — it proves the issuer's private key signed exactly these
-    // fields, without exposing the secret or requiring the registry to store
-    // participant names.
-    if (hasWebCrypto() && loadedRegistry?.schema === 3 && loadedRegistry?.publicKey && record.h) {
+    const gate = verificationGate(record, loadedRegistry);
+
+    // Strongest path: verify the ECDSA signature cryptographically. This proves
+    // the issuer's private key signed exactly these fields, without exposing
+    // the secret or requiring the registry to store participant names.
+    if (gate === 'ecdsa') {
       const outcome = await evaluateEcdsaRecord(record, loadedRegistry);
       if (outcome.status === 'verified') {
         renderEcdsaVerified(card, record, outcome.match, loadedRegistry);
@@ -449,6 +490,14 @@ async function init() {
         renderEcdsaMismatch(card, record, loadedRegistry);
         return;
       }
+    }
+
+    // The record and registry are ECDSA-intended but this context cannot run
+    // crypto — refuse the fallback pair-match so "verified" is never claimed
+    // without cryptography.
+    if (gate === 'crypto-unavailable') {
+      renderCryptoLimited(card, record, loadedRegistry);
+      return;
     }
 
     // Fallback: HMAC pair-match (schema 2 and legacy registries).

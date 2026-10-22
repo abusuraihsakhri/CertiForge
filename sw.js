@@ -31,6 +31,7 @@ const ASSETS = [
   './js/zip.js',
   './js/project.js',
   './js/security.js',
+  './js/crypto.js',
   './js/progress.js',
   './js/generator.js',
   './js/pdf-worker.js',

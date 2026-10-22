@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { getTemplate } from './templates.js';
 import { resolveText, verificationContext } from './variables.js';
-import { generateQRDataUrl } from './qrcode.js';
+import { getQRInstance, qrDataUrlFrom, generateQRDataUrl } from './qrcode.js';
 import { escapeHTML } from './utils.js';
 import { SAFE_FONT_DATA_URL } from './security.js';
 
@@ -144,11 +144,21 @@ function textFragment(e, data, vc) {
   ).join('');
 }
 
-function qrFragment(e, data, vc) {
+function qrFragment(e, data, vc, strict) {
   const idAttr = e.id ? ` data-el="${esc(e.id)}"` : '';
   const sz = Number(e.w) || 80;
   const resolved = resolveText(e.text || "{{VERIFY_URL}}", data, vc);
-  const qrDataUrl = generateQRDataUrl(resolved, 200);
+  const qr = getQRInstance(resolved, 'M');
+  let qrDataUrl;
+  if (qr) {
+    qrDataUrl = qrDataUrlFrom(qr, 200);
+  } else if (strict) {
+    // Final output must never ship a decorative placeholder: a certificate
+    // whose verification QR cannot scan is a broken credential.
+    throw new Error(`The QR verification code could not be generated (element "${e.id || "qr"}"). The batch was stopped so no unverifiable certificates are produced.`);
+  } else {
+    qrDataUrl = generateQRDataUrl(resolved, 200); // editor/preview placeholder
+  }
   return `<image${idAttr} href="${esc(qrDataUrl)}" xlink:href="${esc(qrDataUrl)}" x="${(Number(e.x) || 0) - sz / 2}" y="${(Number(e.y) || 0) - sz / 2}" width="${sz}" height="${Number(e.h) || sz}" preserveAspectRatio="xMidYMid meet"/>`;
 }
 
@@ -156,15 +166,17 @@ function qrFragment(e, data, vc) {
  * Renders one certificate. Elements are emitted in document order so the PDF
  * z-order matches the editor exactly. Pass a precomputed verificationContext
  * (from verificationContext(row, index)) to avoid re-hashing per element.
+ * Strict mode (final batch output) fails the record instead of rendering a
+ * placeholder QR; the editor and preview keep the placeholder fallback.
  */
-export function renderCertificateSVG(row, index, ctx) {
+export function renderCertificateSVG(row, index, ctx, { strict = false } = {}) {
   const data = row || {};
   const vc = (ctx && typeof ctx === "object") ? ctx : verificationContext(row, index);
   const parts = [buildSvgSkeleton(state.templateId)];
   state.elements.forEach((e, i) => {
     if (e.type === "shape" || (e.type === "image" && e.src)) parts.push(staticFragment(e, i));
     else if (e.type === "text") parts.push(textFragment(e, data, vc));
-    else if (e.type === "qr") parts.push(qrFragment(e, data, vc));
+    else if (e.type === "qr") parts.push(qrFragment(e, data, vc, strict));
   });
   parts.push('</svg>');
   return parts.join('');

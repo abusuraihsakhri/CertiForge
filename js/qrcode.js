@@ -25,15 +25,26 @@ export function generateQR(text, size = 200) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><rect width="${size}" height="${size}" fill="#ffffff"/><rect x="8" y="8" width="${size - 16}" height="${size - 16}" fill="none" stroke="#ccc" stroke-dasharray="4"/><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="12" fill="#888">QR Code</text></svg>`;
 }
 
+export function qrDataUrlFrom(qr, size = 200) {
+  const moduleCount = qr.getModuleCount();
+  const margin = 2;
+  const cellSize = Math.max(4, Math.floor(size / (moduleCount + margin * 2)));
+  return qr.createDataURL(cellSize, margin);
+}
+
 export function generateQRDataUrl(text, size = 200) {
   const qr = getQRInstance(text, 'M');
-  if (qr) {
-    const moduleCount = qr.getModuleCount();
-    const margin = 2;
-    const cellSize = Math.max(4, Math.floor(size / (moduleCount + margin * 2)));
-    return qr.createDataURL(cellSize, margin);
-  }
+  if (qr) return qrDataUrlFrom(qr, size);
 
   const svg = generateQR(text, size);
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+/**
+ * True when the vendored QR library can actually encode data. Final certificate
+ * output must refuse to print when this is false — a dashed placeholder would
+ * ship certificates whose verification QR cannot be scanned.
+ */
+export function qrVendorAvailable() {
+  return Boolean(getQRInstance('https://certiforge.local/probe', 'M'));
 }

@@ -16,5 +16,7 @@ export const maxSpreadsheetBytes = 20 * 1024 * 1024;
 export const maxTextInput = 5000;
 export const maxNameLength = 120;
 
-// Legacy salt: signatures made with it are no longer accepted as authoritative.
+// Legacy salt: generation is blocked while the secret equals this value, and
+// the portal treats it as non-authoritative. Certificates signed with it in
+// older builds remain verifiable only against previously published registries.
 export const LEGACY_VERIFY_SALT = "CertiForge-Secure-Salt";
