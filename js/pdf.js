@@ -89,16 +89,17 @@ export function wrapToLines(text, font, size, weight, maxWidth) {
   return lines.length ? lines : [''];
 }
 
-export function buildSvgSkeleton(templateId) {
-  if (_header && _headerKey === templateId + "|" + _rev) return _header;
+export function buildSvgSkeleton(templateId, { background = true } = {}) {
+  if (!background && _header && _headerKey === templateId + "|overlay|" + _rev) return _header;
+  if (background && _header && _headerKey === templateId + "|" + _rev) return _header;
   const t = getTemplate(templateId);
   const fontDefs = (state.fonts || [])
     .filter(f => f && f.family && SAFE_FONT_DATA_URL.test(String(f.data || '').trim()))
     .map(f => `@font-face { font-family: "${esc(f.family)}"; src: url("${esc(String(f.data).trim())}"); }`);
   _header = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${Number(t.page.width) || 0}" height="${Number(t.page.height) || 0}" viewBox="0 0 ${Number(t.page.width) || 0} ${Number(t.page.height) || 0}">`
     + (fontDefs.length ? `<defs><style>${fontDefs.join('\n')}</style></defs>` : '')
-    + `<rect width="100%" height="100%" fill="${esc(t.background || "#ffffff")}"/>`;
-  _headerKey = templateId + "|" + _rev;
+    + (background ? `<rect width="100%" height="100%" fill="${esc(t.background || "#ffffff")}"/>` : '');
+  _headerKey = templateId + (background ? "|" : "|overlay|") + _rev;
   return _header;
 }
 
@@ -163,11 +164,43 @@ function qrFragment(e, data, vc, strict) {
 }
 
 /**
- * Renders one certificate. Elements are emitted in document order so the PDF
- * z-order matches the editor exactly. Pass a precomputed verificationContext
- * (from verificationContext(row, index)) to avoid re-hashing per element.
- * Strict mode (final batch output) fails the record instead of rendering a
- * placeholder QR; the editor and preview keep the placeholder fallback.
+ * Static batch layer: page skeleton + every element whose pixels never change
+ * between records (shapes, uploaded artwork). Rasterized exactly ONCE per
+ * batch and composed underneath the per-record dynamic layer — without this
+ * split, every certificate re-embeds and re-decodes multi-megabyte base64
+ * artwork.
+ */
+export function renderStaticLayerSVG(templateId = state.templateId) {
+  const parts = [buildSvgSkeleton(templateId)];
+  state.elements.forEach((e, i) => {
+    if (e.type === "shape" || (e.type === "image" && e.src)) parts.push(staticFragment(e, i));
+  });
+  parts.push('</svg>');
+  return parts.join('');
+}
+
+/**
+ * Dynamic batch layer: only the per-record content (text + QR), on a
+ * transparent page of identical dimensions. Composed over the static layer at
+ * full size. Strict mode (final output) fails the record instead of drawing a
+ * placeholder QR.
+ */
+export function renderDynamicLayerSVG(row, index, ctx, { strict = false } = {}) {
+  const data = row || {};
+  const vc = (ctx && typeof ctx === "object") ? ctx : verificationContext(row, index);
+  const parts = [buildSvgSkeleton(state.templateId, { background: false })];
+  state.elements.forEach(e => {
+    if (e.type === "text") parts.push(textFragment(e, data, vc));
+    else if (e.type === "qr") parts.push(qrFragment(e, data, vc, strict));
+  });
+  parts.push('</svg>');
+  return parts.join('');
+}
+
+/**
+ * Single-document render (editor preview and non-layered fallbacks): static
+ * artwork and per-record content in one SVG. Elements are emitted in document
+ * order so the PDF z-order matches the editor exactly.
  */
 export function renderCertificateSVG(row, index, ctx, { strict = false } = {}) {
   const data = row || {};
@@ -182,7 +215,7 @@ export function renderCertificateSVG(row, index, ctx, { strict = false } = {}) {
   return parts.join('');
 }
 
-export async function svgToCanvas(svg, scale = 2) {
+export async function svgToCanvas(svg, scale = 2, { transparent = false, under = null } = {}) {
   const t = getTemplate(state.templateId);
   const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -193,18 +226,21 @@ export async function svgToCanvas(svg, scale = 2) {
     canvas.width = Math.round(t.page.width * scale);
     canvas.height = Math.round(t.page.height * scale);
     const ctx = canvas.getContext("2d", { alpha: false });
-    ctx.fillStyle = t.background || "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!transparent) {
+      ctx.fillStyle = t.background || "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    if (under) ctx.drawImage(under, 0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     return canvas;
   } finally { URL.revokeObjectURL(url); }
 }
 
-export async function svgToPdf(svg) {
+export async function svgToPdf(svg, { under = null } = {}) {
   if (!window.jspdf) throw new Error("PDF support could not load. Reload the page and try again.");
   const t = getTemplate(state.templateId), { jsPDF } = window.jspdf;
   const scale = Math.max(1, Math.min(3, Number(state.settings.rasterScale) || 2));
-  const canvas = await svgToCanvas(svg, scale);
+  const canvas = await svgToCanvas(svg, scale, under ? { transparent: true, under } : {});
   const pdf = new jsPDF({ orientation: t.page.orientation === "landscape" ? "landscape" : "portrait", unit: "pt", format: [t.page.width, t.page.height], compress: true });
   // jsPDF accepts a canvas element directly — avoids a multi-MB base64 string per page.
   pdf.addImage(canvas, "PNG", 0, 0, t.page.width, t.page.height, undefined, "FAST");

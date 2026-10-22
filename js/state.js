@@ -42,6 +42,16 @@ export const state = baseDefaults();
 
 export const defaultState = () => baseDefaults();
 
+let _mutationCount = 0;
+
 export function markDirty() {
   state.dirtySinceSave = true;
+  _mutationCount++;
+}
+
+// Monotonic mutation counter: autosave uses it to detect whether the project
+// changed while an async IndexedDB write was in flight, so the dirty flag is
+// only cleared when the write actually covers the latest state.
+export function mutationCount() {
+  return _mutationCount;
 }

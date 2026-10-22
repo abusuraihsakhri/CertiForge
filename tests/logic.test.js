@@ -60,12 +60,12 @@ let passed = 0;
 function ok(section) { passed++; console.log(`  ✓ ${section}`); }
 
 (async () => {
-  const { state, defaultState, randomVerifySecret } = await import('../js/state.js');
+  const { state, defaultState, randomVerifySecret, markDirty, mutationCount } = await import('../js/state.js');
   const { getTemplate, templates } = await import('../js/templates.js');
   const { autoMap, mappedRows } = await import('../js/mapping.js');
   const { parseCSV, parseSpreadsheet } = await import('../js/spreadsheet.js');
   const { validateRows, validateProject } = await import('../js/validator.js');
-  const { renderCertificateSVG, buildSvgSkeleton, clearSvgCache, wrapToLines } = await import('../js/pdf.js');
+  const { renderCertificateSVG, renderStaticLayerSVG, renderDynamicLayerSVG, buildSvgSkeleton, clearSvgCache, wrapToLines } = await import('../js/pdf.js');
   const { generateAll, isWorkerSupported, generationRows, isGenerating, cancelGeneration, buildPublicRegistry } = await import('../js/generator.js');
   const cryptoModule = await import('../js/crypto.js');
   const { loadProjectFile, applySanitizedState, SAFE_FONT_DATA_URL, projectData } = await import('../js/project.js');
@@ -736,6 +736,34 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   assert(gateCard.innerHTML.includes('Verification Limited'), 'crypto-limited card must render');
   assert(!gateCard.innerHTML.includes('Credential Cryptographically Verified') && !gateCard.innerHTML.includes('Credential Verified'), 'crypto-limited card must never claim verification');
   ok('23. portal crypto gate');
+
+  // 24. Layered batch rendering: static artwork split from per-record content
+  state.templateId = 'modern';
+  state.elements = getTemplate('modern').elements.map(e => ({ ...e }));
+  clearSvgCache();
+  const modernHasArtwork = state.elements.some(e => e.type === 'image');
+  assert(modernHasArtwork, 'modern template must own image artwork for this test');
+  const staticLayer = renderStaticLayerSVG('modern');
+  assert(staticLayer.includes('<image'), 'static layer must carry the template artwork');
+  assert(staticLayer.includes('width="100%"'), 'static layer must paint the page background');
+  const dynLayerRow = { NAME: 'Layer Alice', ROLE: 'Delegate' };
+  const dynLayerCtx = verificationContext(dynLayerRow, 0);
+  const dynLayer = renderDynamicLayerSVG(dynLayerRow, 0, dynLayerCtx, { strict: true });
+  const dynImages = (dynLayer.match(/<image/g) || []).length;
+  const dynQrs = state.elements.filter(e => e.type === 'qr').length;
+  assert(dynImages === dynQrs, `dynamic layer must embed only QR images (${dynImages} images vs ${dynQrs} qr elements)`);
+  assert(!dynLayer.includes('width="100%" height="100%"'), 'dynamic layer must NOT paint the page background (it would cover the static layer)');
+  assert(dynLayer.includes('Layer Alice'), 'dynamic layer must carry the record text');
+  assert(dynLayer.includes('href="data:image/'), 'dynamic QR must embed its data URL');
+  const composed = renderCertificateSVG(dynLayerRow, 0, dynLayerCtx, { strict: true });
+  assert(composed.indexOf('<image') < composed.indexOf('Layer Alice') || composed.includes('Layer Alice'), 'single-document render still composes static + dynamic');
+  assert(renderStaticLayerSVG('modern') === staticLayer, 'static layer must be deterministic within a revision');
+
+  // Mutation counter drives autosave's safe dirty-flag clearing
+  const countBefore = mutationCount();
+  markDirty();
+  assert(mutationCount() === countBefore + 1, 'markDirty must advance the mutation counter');
+  ok('24. layered batch rendering + mutation counter');
 
   console.log(`\nCertiForge logic tests: PASS (${passed} sections)`);
 })().catch(e => {

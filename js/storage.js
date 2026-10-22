@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, mutationCount } from './state.js';
 import { projectData } from './project.js';
 import { toast } from './utils.js';
 import { autosaveIntervalMs } from './config.js';
@@ -49,11 +49,16 @@ let _quotaWarned = false;
 
 export async function autosaveProject() {
   if (!state.dirtySinceSave) return;
+  const seenMutations = mutationCount();
   try {
     const database = await openDB();
     const tx = database.transaction(STORE, 'readwrite');
     tx.objectStore(STORE).put(projectData(), 'current_project');
     await txDone(tx);
+    // Only clear the dirty flag when no mutation happened during the async
+    // write — otherwise every 30s tick re-serializes the entire project
+    // (including multi-MB base64 assets) even when nothing changed.
+    if (mutationCount() === seenMutations) state.dirtySinceSave = false;
     _quotaWarned = false;
   } catch (e) {
     console.warn('Autosave failed:', e);
@@ -123,10 +128,25 @@ export async function clearSigningKey(projectName) {
 }
 
 let _autosaveTimer = null;
+let _autosavePaused = false;
 export function startAutosave() {
   if (_autosaveTimer) clearInterval(_autosaveTimer);
   _autosaveTimer = setInterval(() => { autosaveProject(); }, autosaveIntervalMs);
 }
 export function stopAutosave() {
   if (_autosaveTimer) { clearInterval(_autosaveTimer); _autosaveTimer = null; }
+}
+// Batch generation pauses the interval and resumes it afterwards — a 30s tick
+// mid-batch would serialize the whole project (fonts included) for no benefit.
+export function pauseAutosave() {
+  if (_autosaveTimer) {
+    stopAutosave();
+    _autosavePaused = true;
+  }
+}
+export function resumeAutosave() {
+  if (_autosavePaused && !_autosaveTimer) {
+    _autosavePaused = false;
+    startAutosave();
+  }
 }

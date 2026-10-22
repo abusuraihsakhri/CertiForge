@@ -11,8 +11,7 @@ const ctx = typeof self !== 'undefined' ? self : globalThis;
 let currentTemplate = null;
 let currentFonts = [];
 let currentScale = 2;
-
-const SAFE_FONT_DATA_URL = /^data:(?:font\/(?:woff2?|truetype|opentype)|application\/(?:x-font-(?:ttf|otf|woff2?)|font-woff2?));base64,[A-Za-z0-9+/=]+$/;
+let staticBitmap = null;
 
 ctx.onmessage = async function (e) {
   const msg = e.data;
@@ -23,15 +22,31 @@ ctx.onmessage = async function (e) {
     currentFonts = Array.isArray(msg.fonts) ? msg.fonts : [];
     currentScale = Number(msg.scale) || 2;
 
-    // Load any custom fonts into worker scope FontFaceSet if supported.
-    // Only allow-listed data URLs are registered.
+    // Decode the shared static artwork layer once per worker: per-record
+    // renders then compose this bitmap under the dynamic text/QR layer
+    // instead of re-decoding the full artwork for every certificate.
+    staticBitmap = null;
+    if (msg.staticPng) {
+      try {
+        staticBitmap = await createImageBitmap(new Blob([msg.staticPng], { type: 'image/png' }));
+      } catch (_) {
+        staticBitmap = null;
+      }
+    }
+
+    // Load custom fonts into worker scope FontFaceSet if supported.
+    // Payloads are blob URLs into the parent's font bytes — workers fetch the
+    // SAME blob, so a batch never holds one base64 font copy per worker.
     const failedFonts = [];
     if (currentFonts.length && typeof ctx.FontFace !== 'undefined' && ctx.fonts) {
       for (const font of currentFonts) {
-        if (!font || !font.family) continue;
-        if (!SAFE_FONT_DATA_URL.test(String(font.data || '').trim())) { failedFonts.push(String(font.family)); continue; }
+        if (!font || !font.family || !font.url) {
+          if (font && font.family) failedFonts.push(String(font.family));
+          continue;
+        }
         try {
-          const fontFace = new ctx.FontFace(font.family, `url(${String(font.data).trim()})`);
+          const bytes = await (await fetch(font.url)).arrayBuffer();
+          const fontFace = new ctx.FontFace(font.family, bytes);
           const loaded = await fontFace.load();
           ctx.fonts.add(loaded);
         } catch (_) {
@@ -53,6 +68,9 @@ ctx.onmessage = async function (e) {
       if (typeof OffscreenCanvas === 'undefined') {
         throw new Error('OffscreenCanvas is not supported in Worker scope.');
       }
+      if (!staticBitmap) {
+        throw new Error('Static artwork layer was not decoded in this worker.');
+      }
 
       const s = currentScale || 2;
       const targetWidth = Math.round(width || (currentTemplate?.page?.width ? currentTemplate.page.width * s : 1684));
@@ -72,6 +90,7 @@ ctx.onmessage = async function (e) {
       const bg = currentTemplate?.background || '#ffffff';
       canvasCtx.fillStyle = bg;
       canvasCtx.fillRect(0, 0, targetWidth, targetHeight);
+      canvasCtx.drawImage(staticBitmap, 0, 0, targetWidth, targetHeight);
       canvasCtx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
 
       if (typeof bitmap.close === 'function') {
