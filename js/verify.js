@@ -447,7 +447,9 @@ export function renderPortalSearch(card, registry, onRegistryLoaded) {
         </div>
       </div>
 
-      <div id="registryStatus" class="mini-help" style="margin-bottom:16px;font-size:12px;color:var(--muted)">${registry ? `Loaded registry: <strong>${registry.certificates.length} certificates</strong>${registry.event ? ` for <em>${esc(registry.event)}</em>` : ''}${registry.schema === 2 ? ' — privacy-safe digest registry (stores no participant names)' : ''}.` : 'No registry loaded yet.'}</div>
+      <p class="mini-help" style="margin:10px 0 16px;font-size:12px;color:var(--muted)">Verification is fully offline and cryptographic — the ID or file you enter is never sent to any server.</p>
+
+      <div id="registryStatus" class="mini-help" style="margin-bottom:16px;font-size:12px;color:var(--muted)">${registry ? `Loaded registry: <strong>${registry.certificates.length} certificates</strong>${registry.event ? ` for <em>${esc(registry.event)}</em>` : ''}${registry.schema === 2 ? ' — privacy-safe digest registry (stores no participant names)' : ''}.` : `<strong>No registry loaded yet.</strong> The organizer publishes a verification-registry.json alongside the certificate batch.`}</div>
 
       <div class="card panel dropzone-soft">
         <strong style="font-size:13px;display:block">Upload Registry JSON</strong>

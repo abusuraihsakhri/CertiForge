@@ -64,11 +64,11 @@
 }
 .canvas-toolbar-group{display:flex;align-items:center;gap:4px}
 .canvas-toolbar-group:last-child{justify-content:flex-end}
-.canvas-toolbar-title{color:#667085;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.canvas-toolbar-title{color:#475467;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
 .tool-btn{
   min-width:30px;height:28px;padding:0 7px;
-  border:1px solid transparent;border-radius:7px;background:transparent;color:#667085;
-  font-size:10px;font-weight:650
+  border:1px solid transparent;border-radius:7px;background:transparent;color:#475467;
+  font-size:11px;font-weight:650
 }
 .tool-btn:hover{background:#f2f4f7;color:#344054}
 .tool-btn[aria-pressed="true"]{background:var(--brand-soft);color:var(--brand);border-color:#d8dcff}
@@ -186,7 +186,14 @@
 }
 .element-item:hover{background:var(--bg-surface-hover);border-color:var(--border-strong)}
 .element-row.selected .element-item{background:var(--accent-soft);border-color:var(--accent-primary);color:#c7d2fe}
-.element-item span:last-child{color:var(--text-tertiary)}
+.element-item{align-items:center}
+.element-item .tag{
+  flex:0 0 auto;padding:2px 6px;border-radius:4px;
+  background:var(--bg-surface-hover);color:var(--text-secondary);
+  font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+}
+.element-row.selected .element-item .tag{background:rgba(15,23,42,.16)}
+.element-item span:last-child:not(.tag){color:var(--text-tertiary)}
 .layer-btn{
   border-color:var(--border-color);
   background:#0f172a;

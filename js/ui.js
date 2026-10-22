@@ -19,14 +19,24 @@ export { updateGenerationProgress } from './progress.js';
 
 const WORKFLOW_STEPS = ["templates", "editor", "data", "mapping", "preview", "generate"];
 
+export function canVisitStep(step) {
+  if (step === "mapping") return Boolean(state.rows.length);
+  if (step === "preview" || step === "generate") return Boolean(state.rows.length && state.mappings && state.mappings.NAME);
+  return true;
+}
+
 function updateShell() {
   const current = state.currentStep || "templates";
   const currentIndex = WORKFLOW_STEPS.indexOf(current);
   document.querySelectorAll(".nav-item[data-step]").forEach(b => {
     const index = WORKFLOW_STEPS.indexOf(b.dataset.step);
     const active = b.dataset.step === current;
+    const unlocked = canVisitStep(b.dataset.step);
     b.classList.toggle("active", active);
     b.classList.toggle("complete", index >= 0 && index < currentIndex);
+    b.classList.toggle("locked", !unlocked);
+    if (unlocked) b.removeAttribute("aria-disabled");
+    else b.setAttribute("aria-disabled", "true");
     if (active) b.setAttribute("aria-current", "step");
     else b.removeAttribute("aria-current");
   });
@@ -51,6 +61,7 @@ export function historyAction(fn, label) {
 
 export function renderStep() {
   const app = document.getElementById("app"), step = state.currentStep || "templates";
+  app.removeAttribute("aria-busy");
   if (step === "templates") renderTemplates(app);
   else if (step === "editor") renderEditor(app);
   else if (step === "data") renderData(app);

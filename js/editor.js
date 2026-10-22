@@ -118,13 +118,18 @@ export function renderCurrentEditor() {
   const list = document.getElementById("elementList");
   if (list) {
     list.innerHTML = state.elements.map(e => {
-      const label = e.type === "text" ? (e.variable || e.text.slice(0, 24)) : (e.type === "qr" ? "QR Code" : (e.name || e.shape || e.type));
+      const prettyId = s => String(s).replace(/[-_]+/g, " ").trim().replace(/\b\w/g, c => c.toUpperCase());
+      const label = e.type === "text"
+        ? (e.variable || e.text.slice(0, 24))
+        : e.type === "qr" ? "QR Code"
+        : (e.name || prettyId(e.id) || (e.shape === "polygon" ? "Decorative Shape" : "Shape"));
+      const tag = e.locked ? "lock" : e.type;
       const idx = state.elements.indexOf(e);
       const canUp = idx < state.elements.length - 1;
       const canDown = idx > 0;
       const selected = e.id === state.selectedElement;
       return `<div class="element-row ${selected ? 'selected' : ''}">
-        <button class="element-item" data-el="${escapeHTML(e.id)}" aria-pressed="${selected}"><span>${escapeHTML(label)}</span><span>${e.locked ? "LOCK" : e.type}</span></button>
+        <button class="element-item" data-el="${escapeHTML(e.id)}" aria-pressed="${selected}" title="${escapeHTML(String(label))}"><span>${escapeHTML(label)}</span><span class="tag">${escapeHTML(tag)}</span></button>
         <div class="layer-controls">
           <button class="layer-btn" data-layer-up="${escapeHTML(e.id)}" ${canUp ? '' : 'disabled'} aria-label="Move ${escapeHTML(String(label))} forward" title="Move forward">&#9650;</button>
           <button class="layer-btn" data-layer-down="${escapeHTML(e.id)}" ${canDown ? '' : 'disabled'} aria-label="Move ${escapeHTML(String(label))} backward" title="Move backward">&#9660;</button>

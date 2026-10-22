@@ -1,7 +1,7 @@
 import { state, defaultState } from './state.js';
 import { loadTemplate } from './template-loader.js';
 import { saveProject, loadProjectFile, applySanitizedState } from './project.js';
-import { go, historyAction } from './ui.js';
+import { go, historyAction, canVisitStep } from './ui.js';
 import { undo, redo } from './history.js';
 import { toast, appConfirm } from './utils.js';
 import { startAutosave, restoreAutosave, clearAutosave } from './storage.js';
@@ -72,7 +72,16 @@ async function init() {
     loadTemplate("modern");
   }
 
-  document.querySelectorAll(".nav-item[data-step]").forEach(b => b.onclick = () => go(b.dataset.step));
+  document.querySelectorAll(".nav-item[data-step]").forEach(b => b.onclick = () => {
+    const step = b.dataset.step;
+    if (!canVisitStep(step)) {
+      if (state.rows.length) toast("Map the participant NAME column before opening this step.");
+      else toast("Upload participant data before opening this step.");
+      go(state.rows.length ? "mapping" : "data");
+      return;
+    }
+    go(step);
+  });
   bindShellControls();
   document.getElementById("saveProjectBtn").onclick = () => { saveProject(); toast("Project exported. Participant rows are intentionally not embedded."); };
   document.getElementById("openProjectBtn").onclick = () => document.getElementById("projectFileInput").click();

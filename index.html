@@ -45,9 +45,9 @@
       <button class="nav-item active" data-step="templates" aria-current="step"><span aria-hidden="true">01</span> Template</button>
       <button class="nav-item" data-step="editor"><span aria-hidden="true">02</span> Design</button>
       <button class="nav-item" data-step="data"><span aria-hidden="true">03</span> Participants</button>
-      <button class="nav-item" data-step="mapping"><span aria-hidden="true">04</span> Mapping</button>
-      <button class="nav-item" data-step="preview"><span aria-hidden="true">05</span> Preview</button>
-      <button class="nav-item" data-step="generate"><span aria-hidden="true">06</span> Generate</button>
+      <button class="nav-item" data-step="mapping" title="Available after importing participants"><span aria-hidden="true">04</span> Mapping</button>
+      <button class="nav-item" data-step="preview" title="Available after mapping the NAME column"><span aria-hidden="true">05</span> Preview</button>
+      <button class="nav-item" data-step="generate" title="Available after mapping the NAME column"><span aria-hidden="true">06</span> Generate</button>
     </nav>
     <section class="sidebar-bottom">
       <div class="privacy-card">
@@ -88,7 +88,27 @@
     </header>
 
     <!-- CONTENT -->
-    <main id="app" class="workspace"></main>
+    <main id="app" class="workspace" aria-busy="true">
+      <div class="workspace-loader" role="status" aria-live="polite">
+        <p class="skeleton-note">Preparing your studio…</p>
+        <div class="skeleton-line is-eyebrow" aria-hidden="true"></div>
+        <div class="skeleton-line is-title" aria-hidden="true"></div>
+        <div class="skeleton-line is-sub" aria-hidden="true"></div>
+        <div class="skeleton-chips" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="skeleton-grid" aria-hidden="true">
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        </div>
+      </div>
+    </main>
   </div>
 </div>
 
