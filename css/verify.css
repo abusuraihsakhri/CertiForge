@@ -1,126 +1,114 @@
-body{height:auto;min-height:100vh;overflow:visible;background:var(--bg-app)}
-.verify-shell{
-  min-height:100vh;display:flex;flex-direction:column;
-  background:
-    radial-gradient(circle at 18% 12%,rgba(99,102,241,.10),transparent 24%),
-    radial-gradient(circle at 82% 82%,rgba(99,102,241,.06),transparent 24%),
-    var(--bg-app)
-}
-.verify-shell .topbar{
-  position:sticky;top:0;
-  background:var(--bg-surface);
-  border-bottom:1px solid var(--line)
-}
-.verify-shell .brand>div:last-child{display:flex;flex-direction:column}
-.verify-shell .brand strong{color:var(--text-primary);font-size:12.5px;font-weight:750}
-.verify-shell .brand span{margin-top:2px;color:var(--text-secondary);font-size:9.5px}
+/* Verification portal: the result reads like an issued verification slip. */
 
-.verify-main{flex:1;display:grid;place-items:center;padding:34px 18px}
+body{height:auto;min-height:100vh;overflow:visible}
+.verify-shell{min-height:100vh;display:flex;flex-direction:column;background:var(--ground)}
+.verify-shell .topbar{position:sticky;top:0}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.brand>div:last-child{min-width:0}
+
+.verify-main{flex:1;display:grid;place-items:start center;padding:56px 18px 40px}
 .verify-card{
-  width:min(760px,100%);overflow:hidden;
-  background:var(--bg-surface);
-  border:1px solid var(--border-color);border-radius:18px;
-  box-shadow:0 24px 70px rgba(16,24,40,.11)
+  --seal:var(--intaglio);
+  position:relative;width:min(720px,100%);overflow:hidden;
+  border:1px solid var(--rule);border-top:3px solid var(--seal);border-radius:var(--r-lg);
+  background:var(--surface);box-shadow:var(--shadow-md);
 }
-.verify-head{padding:27px 30px 21px;border-bottom:1px solid var(--border-color);text-align:center}
+.verify-card:has(.status-badge.verified){--seal:var(--secure)}
+.verify-card:has(.status-badge.failed){--seal:var(--danger)}
+.verify-card:has(.status-badge.pending){--seal:var(--caution)}
+
+.verify-head{position:relative;padding:34px 32px 26px;text-align:center;border-bottom:1px solid var(--rule)}
+.verify-head::after{
+  content:"";position:absolute;left:50%;bottom:-4px;width:200px;height:7px;transform:translateX(-50%);
+  background:var(--seal);opacity:.5;
+  -webkit-mask:url("../assets/plates/guilloche-band.svg") left center/60px 100% repeat-x;
+  mask:url("../assets/plates/guilloche-band.svg") left center/60px 100% repeat-x;
+}
+
+/* Status seal: a guilloche rosette tinted by result, the glyph struck in its center. */
 .status-badge{
-  display:inline-flex;align-items:center;gap:7px;
-  margin-bottom:13px;padding:6px 10px;
-  border-radius:999px;font-size:9.5px;font-weight:800;letter-spacing:.02em
+  display:inline-flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:16px;
+  color:var(--seal);font-family:var(--font-mono);font-size:10.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;
 }
-.status-badge.verified{background:#ecfdf3;color:#166534;border:1px solid #bbefc9}
-.status-badge.failed{background:#fff1f0;color:#b42318;border:1px solid #fecdca}
-.status-badge.pending{background:#fffaeb;color:#b54708;border:1px solid #fedf89}
-.status-badge.search{background:var(--brand-soft);color:var(--brand-hover);border:1px solid #d8dcff}
+.status-badge.verified{--seal:var(--secure)}
+.status-badge.failed{--seal:var(--danger)}
+.status-badge.pending{--seal:var(--caution)}
+.status-badge.search{--seal:var(--intaglio)}
 .status-icon{
-  width:20px;height:20px;border-radius:50%;
-  display:grid;place-items:center;font-size:10px;font-weight:900
+  position:relative;isolation:isolate;width:84px;height:84px;display:grid;place-items:center;
+  color:var(--seal);font-family:var(--font-sans);font-size:24px;font-weight:700;letter-spacing:0;
 }
-.status-badge.verified .status-icon{background:#16a34a;color:#fff}
-.status-badge.failed .status-icon{background:#d92d20;color:#fff}
-.status-badge.pending .status-icon{background:#f79009;color:#fff}
-.status-badge.search .status-icon{background:var(--brand);color:#fff}
+.status-icon::before{
+  content:"";position:absolute;inset:0;z-index:-2;background:currentColor;
+  -webkit-mask:url("../assets/plates/rosette.svg") center/contain no-repeat;
+  mask:url("../assets/plates/rosette.svg") center/contain no-repeat;
+}
+.status-icon::after{
+  content:"";position:absolute;inset:24px;z-index:-1;border-radius:50%;
+  background:var(--surface);box-shadow:0 0 0 1px currentColor;
+}
 
-.verify-title{
-  margin:0;color:var(--text-primary);
-  font-size:27px;line-height:1.15;letter-spacing:-.035em;font-weight:760
-}
-.verify-sub{
-  max-width:590px;margin:7px auto 0;
-  color:var(--text-secondary);font-size:11.5px;line-height:1.55
-}
-.verify-body{padding:23px 28px 27px}
-.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
-.detail-item{
-  min-width:0;padding:11px 12px;
-  border:1px solid var(--border-color);border-radius:10px;background:rgba(15,23,42,.48)
-}
-.detail-label{
-  display:block;margin-bottom:4px;
-  color:var(--text-secondary);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.075em
-}
-.detail-val{
-  display:block;color:var(--text-primary);
-  font-size:12px;font-weight:650;line-height:1.35;word-break:break-word
-}
-.detail-val.recipient-name{color:var(--brand-hover);font-size:15px;font-weight:760}
-.detail-val.mono{font-family:var(--font-mono);font-size:10px}
+.verify-title{font-family:var(--font-display);font-size:34px;font-weight:600;line-height:1.1;text-wrap:balance}
+.verify-sub{max-width:560px;margin:10px auto 0;color:var(--ink-muted);font-size:14px;line-height:1.55;text-wrap:pretty}
+.verify-body{padding:26px 32px 30px}
 
-.verify-search-box{margin-bottom:13px}
-.verify-search-box .field>div{
-  display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:7px!important
-}
+/* Certificate particulars as a ledger. */
+.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px;border-top:1px solid var(--rule)}
+.detail-item{min-width:0;padding:12px 0;border-bottom:1px solid var(--rule)}
+.detail-label{display:block;margin-bottom:4px}
+.detail-val{display:block;color:var(--ink);font-size:14px;font-weight:500;line-height:1.4;word-break:break-word}
+.detail-val.recipient-name{color:var(--intaglio);font-family:var(--font-display);font-size:24px;font-weight:600}
+.detail-val.mono{font-family:var(--font-mono);font-size:12.5px;letter-spacing:.02em}
+
 .security-notice{
-  margin-top:13px;padding:11px 12px;
-  border:1px solid var(--border-color);border-radius:9px;
-  background:rgba(15,23,42,.48);color:var(--text-secondary);font-size:10px;line-height:1.5
+  margin-top:18px;padding:13px 15px;
+  border:1px solid var(--rule);border-left:2px solid var(--seal);border-radius:var(--r);
+  background:var(--raised);color:var(--ink-body);font-size:12.5px;line-height:1.6;
 }
-.security-notice strong{color:var(--text-primary)}
-.security-notice code{font-family:var(--font-mono);font-size:9px}
-.verify-actions{display:flex;gap:7px;margin-top:15px}
+.security-notice strong{color:var(--ink)}
+.verify-actions{display:flex;gap:8px;margin-top:22px}
+.verify-actions .btn{min-height:40px}
 .grow{flex:1}
-.verify-footer{
-  padding:11px 18px;
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  border-top:1px solid rgba(228,231,236,.75);
-  color:var(--text-secondary);font-size:9px
-}
+
+/* Search state */
+.verify-search-box{margin-bottom:8px}
+.search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.search-row input{min-height:42px;font-family:var(--font-mono);font-size:14px;letter-spacing:.03em}
+.search-row .btn{min-height:42px;padding:0 20px}
+.verify-hint{margin:10px 0 18px}
+.registry-status{margin-bottom:16px;padding:10px 12px;border:1px solid var(--rule);border-radius:var(--r);background:var(--raised);color:var(--ink-body);font-size:12.5px}
 .dropzone-soft{
-  background:rgba(15,23,42,.45);border:1px dashed var(--border-strong)!important;
-  border-radius:10px;text-align:center;padding:20px 14px
+  display:flex;flex-direction:column;align-items:center;gap:4px;padding:22px 16px;text-align:center;
+  border:1px dashed var(--rule-strong);border-radius:var(--r);background:var(--raised);box-shadow:none;
 }
-.notice-danger{color:#b42318;border-color:#fecdca;background:#fff5f5}
-.notice-ok{color:#166534;border-color:#bbefc9;background:#ecfdf3}
+.dropzone-soft strong{color:var(--ink);font-size:14px;font-weight:600}
+.dropzone-soft p{margin:0 0 10px;color:var(--ink-muted);font-size:12.5px}
+#searchResult{margin-top:16px}
+#searchResult:empty{display:none}
+
+.verify-footer{
+  position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 22px;border-top:1px solid var(--rule);color:var(--ink-muted);
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;
+}
+.verify-footer::before{
+  content:"";position:absolute;left:0;right:0;top:3px;height:6px;
+  background:var(--microprint) repeat-x left center;
+}
 .noscript-note{text-align:center;padding:40px}
 
-@media(max-width:620px){
-  .verify-shell .topbar{flex-wrap:nowrap;min-height:58px;height:58px}
-  .verify-shell .top-actions{width:auto;display:flex}
-  .verify-shell .top-actions .btn{width:auto}
-  .verify-main{place-items:start center;padding:18px 10px}
-  .verify-card{border-radius:14px}
-  .verify-head{padding:21px 17px 17px}
-  .verify-title{font-size:22px}
-  .verify-body{padding:17px}
+@media (max-width:620px){
+  .verify-main{padding:20px 12px}
+  .verify-head{padding:26px 18px 20px}
+  .verify-title{font-size:27px}
+  .verify-body{padding:18px}
   .detail-grid{grid-template-columns:1fr}
   .verify-actions{flex-direction:column}
-  .verify-actions .btn{width:100%}
-  .verify-footer{flex-direction:column;align-items:flex-start}
+  .search-row{grid-template-columns:1fr}
+  .verify-footer{flex-direction:column;align-items:flex-start;gap:4px}
 }
 @media print{
   .topbar,.verify-footer,.verify-actions{display:none!important}
   .verify-main{padding:0}
-  .verify-card{box-shadow:none;border:1px solid #ccc}
-}
-
-
-:root[data-theme="light"] .verify-card{background:#fff}
-:root[data-theme="light"] .detail-item{background:#fbfcfd}
-:root[data-theme="light"] .security-notice{background:#f8fafc}
-:root[data-theme="light"] .dropzone-soft{background:#fbfcfe}
-:root[data-theme="light"] .verify-shell{
-  background:
-    radial-gradient(circle at 18% 12%,rgba(79,70,229,.07),transparent 24%),
-    radial-gradient(circle at 82% 82%,rgba(99,102,241,.05),transparent 24%),
-    var(--bg-app)
+  .verify-card{box-shadow:none}
 }

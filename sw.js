@@ -1,4 +1,4 @@
-const CACHE = 'certiforge-v1.0.2';
+const CACHE = 'certiforge-v1.0.3';
 const ASSETS = [
   './',
   './index.html',
@@ -7,11 +7,11 @@ const ASSETS = [
   './css/main.css',
   './css/editor.css',
   './css/responsive.css',
-  './css/atelier.css',
-  './css/studio.css',
   './css/verify.css',
   './icons/icon.svg',
   './icons/icon-maskable.svg',
+  './assets/plates/rosette.svg',
+  './assets/plates/guilloche-band.svg',
   './assets/fonts/PlayfairDisplay-600.woff2',
   './assets/fonts/PlayfairDisplay-700.woff2',
   './assets/fonts/Cinzel-600.woff2',
@@ -28,7 +28,6 @@ const ASSETS = [
   './js/theme.js',
   './js/state.js',
   './js/template-assets.js',
-  './js/preset-templates.js',
   './js/templates.js',
   './js/template-loader.js',
   './js/variables.js',
@@ -41,8 +40,6 @@ const ASSETS = [
   './js/pdf.js',
   './js/measure.js',
   './js/autofit.js',
-  './js/studio.js',
-  './js/signature.js',
   './js/webfonts.js',
   './js/zip.js',
   './js/project.js',

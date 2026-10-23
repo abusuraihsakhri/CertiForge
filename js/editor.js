@@ -12,11 +12,7 @@ import { FONT_FAMILY_OPTIONS } from './webfonts.js';
 import { fitFontSize } from './autofit.js';
 
 let _lastRenderedElId = null;
-
-/** Force the inspector to rebuild on the next render (record scrubber, data changes). */
-export function setInspectorStale() {
-  _lastRenderedElId = null;
-}
+let _frameGroupOpen = false;
 
 const WEIGHT_LABELS = { 300: "Light", 400: "Regular", 500: "Medium", 600: "Semibold", 700: "Bold", 800: "Extrabold", 900: "Black" };
 
@@ -84,32 +80,6 @@ export async function addImageFile(file) {
   return e;
 }
 
-/**
- * Add a cleaned wet-signature layer from a PNG data URL produced by the
- * signature background remover (signature-cleaner rail section).
- */
-export function addCleanedSignature(dataUrl, name) {
-  const src = String(dataUrl);
-  if (!SAFE_IMAGE_DATA.test(src)) throw new Error("Cleaned signature data failed security validation.");
-  const t = getTemplate(state.templateId);
-  const e = { id: uid("image"), type: "image", name: String(name || "Signature").slice(0, 60) + " (cleaned)", src, x: Math.round(t.page.width / 2), y: Math.round(t.page.height - 110), w: 160, h: 70, fit: "contain", opacity: 1 };
-  // Preserve the natural aspect ratio of the cleaned layer.
-  const probe = new Image();
-  probe.onload = () => {
-    if (!probe.naturalWidth) return;
-    e.h = Math.max(10, Math.round(e.w * probe.naturalHeight / probe.naturalWidth));
-    markDirty();
-    renderCurrentEditor();
-  };
-  probe.src = src;
-  state.elements.push(e);
-  state.selectedElement = e.id;
-  _lastRenderedElId = null;
-  renderCurrentEditor();
-  pushHistory();
-  return e;
-}
-
 export async function loadCustomFont(file) {
   if (!file || !/\.(ttf|otf|woff2?)$/i.test(file.name)) throw new Error("Please choose a font file (.ttf, .otf, .woff, .woff2).");
   const family = file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9]/g, '');
@@ -151,7 +121,7 @@ export function renderCurrentEditor() {
   if (canvas) renderCanvas(canvas, null, true);
   const list = document.getElementById("elementList");
   if (list) {
-    list.innerHTML = state.elements.map(e => {
+    const rowHTML = e => {
       const prettyId = s => String(s).replace(/[-_]+/g, " ").trim().replace(/\b\w/g, c => c.toUpperCase());
       const label = e.type === "text"
         ? (e.variable || e.text.slice(0, 24))
@@ -169,7 +139,15 @@ export function renderCurrentEditor() {
           <button class="layer-btn" data-layer-down="${escapeHTML(e.id)}" ${canDown ? '' : 'disabled'} aria-label="Move ${escapeHTML(String(label))} backward" title="Move backward">&#9660;</button>
         </div>
       </div>`;
-    }).join("");
+    };
+    // Template-locked frame pieces are rarely touched; fold them away so the
+    // editable layers lead the list.
+    const editable = state.elements.filter(e => !e.locked);
+    const locked = state.elements.filter(e => e.locked);
+    list.innerHTML = editable.map(rowHTML).join("") + (locked.length
+      ? `<details class="layer-group" ${_frameGroupOpen ? "open" : ""}><summary>Template frame · ${locked.length} locked</summary>${locked.map(rowHTML).join("")}</details>`
+      : "");
+    list.querySelector(".layer-group")?.addEventListener("toggle", ev => { _frameGroupOpen = ev.currentTarget.open; });
 
     list.querySelectorAll("[data-el]").forEach(b => b.onclick = (ev) => {
       const id = b.dataset.el;

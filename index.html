@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; base-uri 'self'; form-action 'none'; frame-ancestors 'none'">
   <meta name="description" content="CertiForge is a privacy-first browser-based certificate studio. Design templates, import spreadsheets, generate bulk PDFs, and verify digital records.">
-  <meta name="theme-color" content="#f6f7fb">
+  <meta name="theme-color" content="#eeebe3">
   <link rel="canonical" href="https://abusuraihsakhri.github.io/CertiForge/">
   <meta property="og:title" content="Certificate Studio | CertiForge">
   <meta property="og:description" content="CertiForge is a privacy-first browser-based certificate studio. Design templates, import spreadsheets, generate bulk PDFs, and verify digital records.">
@@ -24,8 +24,6 @@
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/editor.css">
   <link rel="stylesheet" href="css/responsive.css">
-  <link rel="stylesheet" href="css/atelier.css">
-  <link rel="stylesheet" href="css/studio.css">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 </head>
@@ -42,53 +40,14 @@
       </div>
     </div>
     <nav aria-label="Workflow steps">
-      <div class="section-title">WORKFLOW</div>
-      <button class="nav-item active" data-step="templates" aria-current="step"><span aria-hidden="true">01</span> Template</button>
-      <button class="nav-item" data-step="editor"><span aria-hidden="true">02</span> Design</button>
-      <button class="nav-item" data-step="data"><span aria-hidden="true">03</span> Participants</button>
-      <button class="nav-item" data-step="mapping" title="Available after importing participants"><span aria-hidden="true">04</span> Mapping</button>
-      <button class="nav-item" data-step="preview" title="Available after mapping the NAME column"><span aria-hidden="true">05</span> Preview</button>
-      <button class="nav-item" data-step="generate" title="Available after mapping the NAME column"><span aria-hidden="true">06</span> Generate</button>
+      <div class="section-title">Issuance workflow</div>
+      <button class="nav-item active" data-step="templates" aria-current="step"><span aria-hidden="true">01</span><span class="step-label">Template</span><span class="step-status" data-step-status="templates"></span></button>
+      <button class="nav-item" data-step="editor"><span aria-hidden="true">02</span><span class="step-label">Design</span><span class="step-status" data-step-status="editor"></span></button>
+      <button class="nav-item" data-step="data"><span aria-hidden="true">03</span><span class="step-label">Participants</span><span class="step-status" data-step-status="data"></span></button>
+      <button class="nav-item" data-step="mapping"><span aria-hidden="true">04</span><span class="step-label">Mapping</span><span class="step-status" data-step-status="mapping"></span></button>
+      <button class="nav-item" data-step="preview"><span aria-hidden="true">05</span><span class="step-label">Preview</span><span class="step-status" data-step-status="preview"></span></button>
+      <button class="nav-item" data-step="generate"><span aria-hidden="true">06</span><span class="step-label">Generate</span><span class="step-status" data-step-status="generate"></span></button>
     </nav>
-
-    <div class="rail-sections" id="railSections">
-      <section class="rail-section" id="railVariables" hidden>
-        <div class="section-header">
-          <span>CSV VARIABLES</span>
-          <button id="cleanCaseBtn" class="btn-micro" title="Title-case the mapped NAME column while keeping post-nominals like MD, PhD, FRCS">Clean Case ✨</button>
-        </div>
-        <div class="variable-pill-list" id="variablePills"></div>
-      </section>
-      <section class="rail-section rail-grow" id="railLayers" hidden>
-        <div class="section-header">
-          <span>CANVAS LAYERS</span>
-          <span id="layerCount"></span>
-        </div>
-        <div class="rail-insert-grid">
-          <button class="btn-micro" id="addTextBtn">+ Text</button>
-          <button class="btn-micro" id="addImageBtn">+ Image</button>
-          <button class="btn-micro" id="addQRBtn">+ QR</button>
-        </div>
-        <input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" aria-label="Upload logo or signature image" hidden>
-        <input id="fontFileInput" type="file" accept=".ttf,.otf,.woff,.woff2" aria-label="Upload custom font file" hidden>
-        <div id="elementList" class="element-list" aria-label="Element layers"></div>
-      </section>
-      <section class="rail-section" id="railSignature" hidden>
-        <div class="section-header"><span>SIGNATURE CLEANER</span></div>
-        <label class="upload-drop-mini">
-          <input type="file" id="sigUploadInput" accept="image/*" hidden />
-          <span>+ Strip paper background</span>
-        </label>
-        <div class="sig-controls">
-          <span class="sig-label">Ink:</span>
-          <button class="ink-swatch active" data-ink="#0f172a" style="background:#0f172a" title="Deep black"></button>
-          <button class="ink-swatch" data-ink="#1d4ed8" style="background:#1d4ed8" title="Royal blue"></button>
-          <input type="range" id="sigThreshold" min="80" max="220" value="165" title="Paper threshold" aria-label="Paper threshold">
-        </div>
-        <div class="sig-status mini-help" id="sigStatus">Upload a signature photo to strip its paper background.</div>
-      </section>
-    </div>
-
     <section class="sidebar-bottom">
       <div class="privacy-card">
         <div class="privacy-icon" aria-hidden="true">
@@ -96,7 +55,7 @@
         </div>
         <div><strong>Secure & Local</strong><p>Participant data stays in your browser.</p></div>
       </div>
-      <button class="nav-item" id="helpBtn" aria-haspopup="dialog"><span aria-hidden="true">?</span> Help</button>
+      <button class="nav-item" id="helpBtn" aria-haspopup="dialog"><span aria-hidden="true">?</span><span class="step-label">Quick start</span></button>
     </section>
   </aside>
 
@@ -119,6 +78,7 @@
         <button class="btn ghost" id="newProjectBtn">New</button>
         <button class="btn ghost" id="openProjectBtn">Open</button>
         <button class="btn ghost" id="saveProjectBtn">Save</button>
+        <span class="divider" aria-hidden="true"></span>
         <button class="icon-btn" id="themeToggleBtn" type="button" aria-label="Toggle dark theme" aria-pressed="false" title="Toggle dark theme">
           <svg class="theme-icon theme-icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
           <svg class="theme-icon theme-icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
@@ -127,28 +87,8 @@
       </div>
     </header>
 
-    <!-- CONTENT: persistent 3-pane studio workspace -->
-    <main id="app" class="workspace" aria-busy="true">
-      <div class="workspace-loader" role="status" aria-live="polite">
-        <p class="skeleton-note">Preparing your studio…</p>
-        <div class="skeleton-line is-eyebrow" aria-hidden="true"></div>
-        <div class="skeleton-line is-title" aria-hidden="true"></div>
-        <div class="skeleton-line is-sub" aria-hidden="true"></div>
-        <div class="skeleton-chips" aria-hidden="true">
-          <span></span><span></span><span></span><span></span><span></span>
-        </div>
-        <div class="skeleton-grid" aria-hidden="true">
-          <div class="skeleton-card"></div>
-          <div class="skeleton-card"></div>
-          <div class="skeleton-card"></div>
-          <div class="skeleton-card"></div>
-          <div class="skeleton-card"></div>
-          <div class="skeleton-card"></div>
-          <div class="skeleton-card"></div>
-          <div class="skeleton-card"></div>
-        </div>
-      </div>
-    </main>
+    <!-- CONTENT -->
+    <main id="app" class="workspace"></main>
   </div>
 </div>
 

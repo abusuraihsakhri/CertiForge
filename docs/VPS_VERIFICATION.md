@@ -220,6 +220,8 @@ systemctl status caddy --no-pager
 sudo mkdir -p /srv/certiforge-verify/css
 sudo mkdir -p /srv/certiforge-verify/js
 sudo mkdir -p /srv/certiforge-verify/icons
+sudo mkdir -p /srv/certiforge-verify/assets/plates
+sudo mkdir -p /srv/certiforge-verify/assets/fonts
 
 sudo chown -R "$USER":"$USER" /srv/certiforge-verify
 ```
@@ -232,7 +234,12 @@ manifest.json
 css/main.css
 css/responsive.css
 css/verify.css
-css/atelier.css
+assets/plates/rosette.svg
+assets/plates/guilloche-band.svg
+assets/fonts/Cinzel-700.woff2
+assets/fonts/CormorantGaramond-600.woff2
+assets/fonts/JetBrainsMono-400.woff2
+assets/fonts/JetBrainsMono-500.woff2
 js/verify.js
 js/utils.js
 js/crypto.js
@@ -251,9 +258,11 @@ git clone https://github.com/abusuraihsakhri/CertiForge.git
 cd CertiForge
 
 cp verify.html manifest.json /srv/certiforge-verify/
-cp css/main.css css/responsive.css css/verify.css css/atelier.css /srv/certiforge-verify/css/
+cp css/main.css css/responsive.css css/verify.css /srv/certiforge-verify/css/
 cp js/verify.js js/utils.js js/crypto.js js/theme.js /srv/certiforge-verify/js/
 cp icons/icon.svg icons/icon-maskable.svg /srv/certiforge-verify/icons/
+cp assets/plates/rosette.svg assets/plates/guilloche-band.svg /srv/certiforge-verify/assets/plates/
+cp assets/fonts/Cinzel-700.woff2 assets/fonts/CormorantGaramond-600.woff2 assets/fonts/JetBrainsMono-400.woff2 assets/fonts/JetBrainsMono-500.woff2 /srv/certiforge-verify/assets/fonts/
 ```
 
 ## 9. Configure Caddy

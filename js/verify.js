@@ -189,8 +189,8 @@ function detailRows(pairs) {
 
 function actionsHtml() {
   return `<div class="verify-actions">
-    <button class="btn primary grow" id="printSlipBtn" type="button">Print Verification Slip</button>
-    <a href="verify.html" class="btn">Verify Another</a>
+    <button class="btn primary grow" id="printSlipBtn" type="button">Print verification slip</button>
+    <a href="verify.html" class="btn">Verify another</a>
   </div>`;
 }
 
@@ -248,7 +248,7 @@ export function renderMismatch(card, record, match, diffs) {
         ["Supplied Event", record.event],
         ["Registry Event", match.event]
       ])}</div>
-      <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Try Another Certificate</a></div>
+      <div class="verify-actions"><a href="verify.html" class="btn primary grow">Try another certificate</a></div>
     </div>`;
 }
 
@@ -299,7 +299,7 @@ export function renderEcdsaMismatch(card, record, registry) {
         ["Supplied ID", record.id],
         ["Payload hash", record.h || ""]
       ])}</div>
-      <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Try Another Certificate</a></div>
+      <div class="verify-actions"><a href="verify.html" class="btn primary grow">Try another certificate</a></div>
     </div>`;
 }
 
@@ -322,7 +322,7 @@ export function renderExists(card, match, registry) {
         ["Issue Date", match.date],
         ["Issuing Authority", match.organization || registry.organization]
       ])}</div>
-      <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Verify Another</a></div>
+      <div class="verify-actions"><a href="verify.html" class="btn primary grow">Verify another</a></div>
     </div>`;
 }
 
@@ -337,7 +337,7 @@ export function renderNotFound(card, record, registry) {
       <p class="verify-sub">The official registry for <em>${esc(registry.event || registry.organization || 'this event')}</em> contains no certificate with ID <strong>${esc(record.id)}</strong>. Double-check the ID or contact the organizer.</p>
     </div>
     <div class="verify-body">
-      <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Try Another Certificate</a></div>
+      <div class="verify-actions"><a href="verify.html" class="btn primary grow">Try another certificate</a></div>
     </div>`;
 }
 
@@ -365,7 +365,7 @@ export function renderRevoked(card, record, match, registry) {
         signature is technically valid, the issuing authority has withdrawn the credential — the registry's revocation
         status is final.
       </div>
-      <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Verify Another</a></div>
+      <div class="verify-actions"><a href="verify.html" class="btn primary grow">Verify another</a></div>
     </div>`;
 }
 
@@ -391,7 +391,7 @@ export function renderCryptoLimited(card, record, registry) {
         signature. When crypto is unavailable this page refuses to show a verified result — an exact string match
         alone is not proof of authenticity. Open this page over HTTPS (or localhost) and scan again.
       </div>
-      <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Try Again</a></div>
+      <div class="verify-actions"><a href="verify.html" class="btn primary grow">Try Again</a></div>
     </div>`;
 }
 
@@ -422,7 +422,7 @@ export function renderUnconfirmed(card, record, reason) {
         placed on a public page). A digest shown here is only evidence of <em>self-consistency</em>, not authenticity.
         Organizers: export the registry from CertiForge's Generate step and publish it alongside this page.
       </div>
-      <div class="verify-actions"><a href="verify.html" class="btn primary grow" style="text-align:center">Manual Search / Upload Registry</a></div>
+      <div class="verify-actions"><a href="verify.html" class="btn primary grow">Search manually or upload a registry</a></div>
     </div>`;
 }
 
@@ -440,25 +440,25 @@ export function renderPortalSearch(card, registry, onRegistryLoaded) {
       <div class="verify-search-box">
         <div class="field">
           <label for="searchIdInput">Certificate ID</label>
-          <div style="display:flex;gap:8px">
+          <div class="search-row">
             <input id="searchIdInput" placeholder="e.g. ICML-2026-0001" autocomplete="off">
             <button class="btn primary" id="searchIdBtn" type="button">Verify</button>
           </div>
         </div>
       </div>
 
-      <p class="mini-help" style="margin:10px 0 16px;font-size:12px;color:var(--muted)">Verification is fully offline and cryptographic — the ID or file you enter is never sent to any server.</p>
+      <p class="mini-help verify-hint">Verification is fully offline and cryptographic — the ID or file you enter is never sent to any server.</p>
 
-      <div id="registryStatus" class="mini-help" style="margin-bottom:16px;font-size:12px;color:var(--muted)">${registry ? `Loaded registry: <strong>${registry.certificates.length} certificates</strong>${registry.event ? ` for <em>${esc(registry.event)}</em>` : ''}${registry.schema === 2 ? ' — privacy-safe digest registry (stores no participant names)' : ''}.` : `<strong>No registry loaded yet.</strong> The organizer publishes a verification-registry.json alongside the certificate batch.`}</div>
+      <div id="registryStatus" class="registry-status">${registry ? `Loaded registry: <strong>${registry.certificates.length} certificates</strong>${registry.event ? ` for <em>${esc(registry.event)}</em>` : ''}${registry.schema === 2 ? ' — privacy-safe digest registry (stores no participant names)' : ''}.` : `<strong>No registry loaded yet.</strong> The organizer publishes a verification-registry.json alongside the certificate batch.`}</div>
 
-      <div class="card panel dropzone-soft">
-        <strong style="font-size:13px;display:block">Upload Registry JSON</strong>
-        <p style="font-size:12px;color:var(--muted);margin:4px 0 12px">Load a <code>verification-registry.json</code> file to verify certificates offline.</p>
-        <button class="btn" id="chooseRegistryBtn" type="button">Choose File</button>
+      <div class="dropzone-soft">
+        <strong>Upload a registry file</strong>
+        <p>Load a <code>verification-registry.json</code> file to verify certificates offline.</p>
+        <button class="btn" id="chooseRegistryBtn" type="button">Choose file</button>
         <input id="registryFileInput" type="file" accept=".json,application/json" aria-label="Choose registry JSON file" hidden>
       </div>
 
-      <div id="searchResult" style="margin-top:16px" aria-live="polite"></div>
+      <div id="searchResult" aria-live="polite"></div>
     </div>`;
 
   const input = document.getElementById('searchIdInput');

@@ -37,8 +37,8 @@ test('full studio flow: import → map → preview → generate batch', async ({
   await expect(page.locator('#generateBtn')).toBeVisible();
   await page.click('#generateBtn');
   await expect(page.locator('#resultCard')).toContainText('Generation complete', { timeout: 90_000 });
-  await expect(page.getByRole('button', { name: /DOWNLOAD ZIP \(2 PDFs\)/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /DOWNLOAD VERIFICATION REGISTRY/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Download ZIP \(2 PDFs\)/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Download verification registry/ })).toBeVisible();
   await expect(page.locator('#resultCard')).toContainText('2 PDFs are ready');
 });
 
@@ -53,11 +53,8 @@ test('importing a file with no name column routes mapping guidance', async ({ pa
   // Continuing without a NAME mapping is blocked with guidance
   await page.click('#toPreview').catch(() => {});
   await page.waitForTimeout(300);
-  // The locked step is announced as disabled but remains clickable with guidance;
-  // the workflow must not reach preview without a NAME mapping.
-  await expect(page.locator('.nav-item[data-step="preview"]')).toHaveAttribute('aria-disabled', 'true');
-  await page.click('.nav-item[data-step="preview"]', { force: true });
-  await expect(page.getByText('Map the participant NAME column before opening this step.')).toBeVisible();
+  // The workflow must not reach preview without a NAME mapping
+  await page.click('.nav-item[data-step="preview"]');
   await page.waitForTimeout(300);
   await expect(page.locator('select[data-map="NAME"]')).toBeVisible();
 });

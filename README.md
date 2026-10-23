@@ -55,7 +55,8 @@ Create a certificate once, connect it to an Excel or CSV file, generate individu
 - Off-canvas workflow drawer with hamburger control on tablets and phones
 - Neutral paper-focused editor artboard that keeps the certificate visually distinct
 - **13 redesigned certificate templates** with warm paper palettes, restrained ink, serif hierarchy, and print-oriented spacing across medical, academic, conference, award, technology, corporate, and sports use cases
-- **100 procedural preset layouts** (10 archetypes × 10 palettes) available from the Templates step — zero-asset, filter by category, one click to load an editable design
+- Smart auto-fit text sizing — long names shrink to fit their box in the editor and the generated PDFs
+- Self-hosted ceremonial fonts (Playfair Display, Cinzel, Cormorant Garamond, JetBrains Mono) with no third-party font fetches
 - Editable text elements with direct drag positioning
 - Logo, signature, and image upload
 - PNG, JPEG, WebP, and SVG support
@@ -89,6 +90,8 @@ Create a certificate once, connect it to an Excel or CSV file, generate individu
 - Multiple output-quality settings
 - Live batch-generation progress
 - ZIP export for all generated PDFs
+- Folder sub-paths in filename patterns group PDFs into ZIP folders (e.g. `{{ROLE}}/`)
+- Optional print-shop master PDF (one merged multi-page file)
 
 ### 💾 Project Management
 

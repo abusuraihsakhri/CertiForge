@@ -12,7 +12,7 @@ function storedTheme() {
 function updateThemeMeta(theme) {
   if (typeof document === 'undefined' || !document.querySelector) return;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', theme === 'dark' ? '#0f172a' : '#f6f7fb');
+  if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b101b' : '#eeebe3');
 }
 
 function updateThemeButton(theme) {

@@ -1,9 +1,4 @@
 import { ASSETS } from './template-assets.js';
-import { buildPresetTemplates, PRESET_TEMPLATES, PRESET_CATEGORIES } from './preset-templates.js';
-
-// The procedural preset library (100 layouts) is re-exported so callers can
-// inspect the raw definitions / categories without importing the generator.
-export { PRESET_TEMPLATES, PRESET_CATEGORIES };
 
 const PAGE = Object.freeze({ width: 1123, height: 794, orientation: "landscape" });
 
@@ -468,10 +463,6 @@ export const templates = [
     useSeal: true
   })
 ];
-
-// Curated gallery cards (13) stay separate from the procedural preset library.
-export const curatedTemplates = templates.slice();
-templates.push(...buildPresetTemplates());
 
 export function getTemplate(id) {
   return templates.find(t => t.id === id) || templates[0];

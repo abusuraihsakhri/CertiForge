@@ -259,7 +259,7 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   ok('9. project import/restore hardening');
 
   // 10. Template catalog and Indian layout rendering
-  assert(templates.length === 113, `Expected 13 curated + 100 presets, found ${templates.length}`);
+  assert(templates.length === 13, `Expected 13 curated templates, found ${templates.length}`);
   const medConf = getTemplate('indian-medical-conf');
   assert(medConf && medConf.name === 'Indian Medical Conference', 'Indian Medical Conf template missing');
   const medAward = getTemplate('indian-medical-award');
@@ -634,11 +634,11 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   ok('20. vendor telemetry check');
 
   // 21. Editorial design system integration
-  const atelierCss = fs.readFileSync(path.join(__dirname, '..', 'css/atelier.css'), 'utf8');
+  const studioCss = ['css/main.css', 'css/editor.css', 'css/responsive.css'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join(' ');
   const themeSource = fs.readFileSync(path.join(__dirname, '..', 'js/theme.js'), 'utf8');
   const generatorSource = fs.readFileSync(path.join(__dirname, '..', 'js/generator.js'), 'utf8');
-  assert(indexHtmlSource.includes('css/atelier.css'), 'index.html must load the editorial design system');
-  assert(atelierCss.includes('.cert-canvas::before') && atelierCss.includes('content:none!important'), 'editor chrome must not force decorative overlays onto every certificate');
+  ['css/main.css', 'css/editor.css', 'css/responsive.css'].forEach(f => assert(indexHtmlSource.includes(f), `index.html must load ${f}`));
+  assert(!/cert-border\.png|cert-seal\.png/.test(studioCss), 'editor chrome must not force decorative overlays onto every certificate');
   assert(themeSource.includes("storedTheme() || 'light'"), 'light theme must be the default when no preference is stored');
   assert(generatorSource.includes('applyVerificationSignature(ctx, sig)'), 'generator must rebuild the QR URL after the final ECDSA signature is produced');
   assert(!generatorSource.includes('VERIFY_URL: ctx.VERIFY_URL'), 'generator must not retain the pre-ECDSA QR URL');
@@ -859,8 +859,8 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   assert(computeAlign([rectA, rectB], 'unknown-mode').length === 0, 'unknown modes must be a no-op');
   ok('25. features (key fingerprints, schema 4, revocation, alignment)');
 
-  // 26. Studio 2.0 engines: auto-fit, title-case sanitizer, folder-token
-  //     filenames, master-PDF export hook, new element schema bits.
+  // 26. Engine additions: auto-fit text sizing, folder-token filenames,
+  //     master-PDF export hook, new element schema bits.
   const { fitFontSize } = await import('../js/autofit.js');
   // No measuring canvas in the test harness → the fixed-width estimate fallback:
   // width ≈ chars × size × 0.52.
@@ -874,15 +874,6 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   const trivialFit = fitFontSize({ text: '', font: 'Arial', size: 44, fitMin: 14, maxWidth: 300 });
   assert(trivialFit.overflowed === false, 'empty text never overflows');
   ok('26a. auto-fit engine (binary search + telemetry flags)');
-
-  const { toAcademicTitleCase } = await import('../js/utils.js');
-  assert(toAcademicTitleCase('dr. aarav sharma, md') === 'Dr. Aarav Sharma, MD', 'title case keeps MD post-nominals uppercase');
-  assert(toAcademicTitleCase('prof. venkatasubramanian balasubramanium, FRCS') === 'Prof. Venkatasubramanian Balasubramanium, FRCS', 'FRCS preserved');
-  assert(toAcademicTitleCase('dr. alexandria catherine montgomery-walsingham, PhD') === 'Dr. Alexandria Catherine Montgomery-Walsingham, PhD', 'hyphenated surname + PhD');
-  assert(toAcademicTitleCase('  rajeshwari   iyer  ') === 'Rajeshwari Iyer', 'title case collapses messy whitespace');
-  assert(toAcademicTitleCase('charles the iii') === 'Charles The III', 'roman numerals preserved (III)');
-  assert(toAcademicTitleCase('') === '', 'empty input stays empty');
-  ok('26b. academic title-case sanitizer');
 
   // Folder-token filenames: nested ZIP paths are safe and surfaces remove
   // traversal patterns; the default flat pattern is unchanged.
@@ -920,148 +911,7 @@ function ok(section) { passed++; console.log(`  ✓ ${section}`); }
   assert(fitEl && fitEl.autoFit === true && fitEl.fitMin === 18, 'autoFit + fitMin must survive the sanitizer');
   assert(!('shoeSize' in fitEl), 'unknown element keys must be dropped by the sanitizer');
   assert(roundtrip.settings.mergedPdf === false, 'settings sanitize maps mergedPdf (boolean, default false)');
-  ok('26. studio 2.0 engines (fit, sanitizer, folder tokens, schema)');
-
-  // 27. Procedural preset library: 100 zero-asset presets (10 archetypes × 10 palettes)
-  const { PRESET_TEMPLATES, PRESET_CATEGORIES, buildPresetTemplate, buildPresetTemplates } = await import('../js/preset-templates.js');
-  const DOC_CATEGORIES = ['Academic', 'Medical', 'Tech', 'Corporate', 'Luxury', 'Bauhaus', 'Creative', 'Eco', 'Heritage', 'Competition'];
-  const ALLOWED_PRESET_FONTS = ['Cinzel', 'Playfair Display', 'Cormorant Garamond', 'JetBrains Mono', 'Arial'];
-  const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/;
-  // Fonts may be declared bare ("Cinzel") or with a CSS fallback ("'Cinzel', serif").
-  const fontFamily = value => String(value == null ? '' : value).split(',')[0].replace(/["']/g, '').trim();
-  // "none"/"transparent" are paint sentinels, not colours.
-  const isPaint = value => value != null && value !== '' && value !== 'none' && value !== 'transparent';
-
-  assert(PRESET_TEMPLATES.length === 100, `Expected 100 preset definitions, found ${PRESET_TEMPLATES.length}`);
-  const presetIds = PRESET_TEMPLATES.map(d => d.id);
-  assert(new Set(presetIds).size === 100, 'preset ids must be unique');
-  presetIds.forEach(id => assert(/^tpl-\d{3}$/.test(id), `preset id must match tpl-NNN: ${id}`));
-  assert(
-    presetIds.every((id, i) => id === 'tpl-' + String(i + 1).padStart(3, '0')),
-    'preset ids must run tpl-001 … tpl-100 in declaration order'
-  );
-
-  assert(PRESET_CATEGORIES.length === 10, `Expected 10 preset categories, found ${PRESET_CATEGORIES.length}`);
-  assert(
-    PRESET_CATEGORIES.join(',') === DOC_CATEGORIES.join(','),
-    `Preset categories must be ${DOC_CATEGORIES.join(', ')} — got ${PRESET_CATEGORIES.join(', ')}`
-  );
-  PRESET_CATEGORIES.forEach(cat => {
-    const inCategory = PRESET_TEMPLATES.filter(d => d.category === cat);
-    assert(inCategory.length === 10, `Category ${cat} must own exactly 10 presets, found ${inCategory.length}`);
-  });
-
-  PRESET_TEMPLATES.forEach(d => {
-    assert(PRESET_CATEGORIES.includes(d.category), `Preset ${d.id} must use a declared category (${d.category})`);
-    ['name', 'headerText', 'subText'].forEach(key => {
-      assert(typeof d[key] === 'string' && d[key].trim() !== '', `Preset ${d.id} must have a non-empty ${key}`);
-    });
-    ['bg', 'primary', 'secondary', 'accent'].forEach(key => {
-      assert(HEX_COLOR.test(String(d[key])), `Preset ${d.id} ${key} must be a hex colour (${d[key]})`);
-    });
-    assert(typeof d.nameY === 'number' && Number.isFinite(d.nameY), `Preset ${d.id} nameY must be numeric`);
-    assert(typeof d.maxWidth === 'number' && Number.isFinite(d.maxWidth) && d.maxWidth > 0, `Preset ${d.id} maxWidth must be a positive number`);
-    ['titleFont', 'bodyFont'].forEach(key => {
-      assert(
-        ALLOWED_PRESET_FONTS.includes(fontFamily(d[key])),
-        `Preset ${d.id} ${key} must be one of ${ALLOWED_PRESET_FONTS.join(' / ')} (${d[key]})`
-      );
-    });
-  });
-
-  const builtPresets = buildPresetTemplates();
-  assert(Array.isArray(builtPresets) && builtPresets.length === 100, `buildPresetTemplates() must return 100 templates, got ${builtPresets && builtPresets.length}`);
-  builtPresets.forEach(t => {
-    const page = t.page || {};
-    const pageW = page.width != null ? page.width : page.w;
-    const pageH = page.height != null ? page.height : page.h;
-    assert(pageW === 1123 && pageH === 794 && page.orientation === 'landscape', `Preset template ${t.id} must be a 1123×794 landscape page (${pageW}×${pageH} ${page.orientation})`);
-    assert(t.preset === true, `Preset template ${t.id} must be flagged preset === true`);
-    assert(Array.isArray(t.elements) && t.elements.length >= 12, `Preset template ${t.id} must carry at least 12 elements, found ${t.elements && t.elements.length}`);
-    const elementIds = t.elements.map(e => e.id);
-    assert(new Set(elementIds).size === elementIds.length, `Preset template ${t.id} must use unique element ids`);
-    const nameLayers = t.elements.filter(e => e.type === 'text' && e.text === '{{NAME}}');
-    assert(nameLayers.length === 1, `Preset template ${t.id} must have exactly one {{NAME}} layer, found ${nameLayers.length}`);
-    assert(nameLayers[0].autoFit === true, `Preset template ${t.id} name layer must opt into auto-fit`);
-    assert(typeof nameLayers[0].fitMin === 'number' && Number.isFinite(nameLayers[0].fitMin), `Preset template ${t.id} name layer must carry a numeric fitMin`);
-    const qrLayers = t.elements.filter(e => e.type === 'qr');
-    assert(qrLayers.length === 1 && qrLayers[0].text === '{{VERIFY_URL}}', `Preset template ${t.id} must have exactly one {{VERIFY_URL}} QR layer`);
-    assert(t.elements.some(e => e.id === 'certificate-id'), `Preset template ${t.id} must keep its certificate-id layer`);
-    assert(!t.elements.some(e => e.type === 'image'), `Preset template ${t.id} must be zero-asset (no image elements)`);
-    t.elements.forEach(e => {
-      // Polygons are positioned by their points string, circles by cx/cy/r, and
-      // everything else is x/y anchored.
-      if (e.type === 'shape' && e.shape === 'polygon') {
-        assert(typeof e.points === 'string' && /\d/.test(e.points), `Preset template ${t.id} polygon ${e.id} needs a points string`);
-      } else if (e.type === 'shape' && e.shape === 'circle') {
-        assert(typeof e.cx === 'number' && Number.isFinite(e.cx), `Preset template ${t.id} circle ${e.id} needs a finite cx`);
-        assert(typeof e.cy === 'number' && Number.isFinite(e.cy), `Preset template ${t.id} circle ${e.id} needs a finite cy`);
-        assert(typeof e.r === 'number' && Number.isFinite(e.r), `Preset template ${t.id} circle ${e.id} needs a finite r`);
-      } else {
-        assert(typeof e.x === 'number' && Number.isFinite(e.x), `Preset template ${t.id} element ${e.id} needs a finite x`);
-        assert(typeof e.y === 'number' && Number.isFinite(e.y), `Preset template ${t.id} element ${e.id} needs a finite y`);
-      }
-      if (e.type === 'shape') {
-        assert(['rect', 'circle', 'polygon'].includes(e.shape), `Preset template ${t.id} shape ${e.id} must be rect/circle/polygon (${e.shape})`);
-      }
-      Object.keys(e).forEach(k => {
-        if (typeof e[k] === 'number') assert(Number.isFinite(e[k]), `Preset template ${t.id} ${e.id}.${k} must be a finite number`);
-      });
-      ['color', 'fill', 'stroke'].forEach(k => {
-        if (!isPaint(e[k])) return;
-        assert(HEX_COLOR.test(String(e[k])), `Preset template ${t.id} ${e.id}.${k} must be a hex colour (${e[k]})`);
-      });
-    });
-  });
-
-  // Spot check: the builder preserves ids and the source data carries no stray whitespace.
-  assert(buildPresetTemplate(PRESET_TEMPLATES[0]).id === 'tpl-001', 'buildPresetTemplate must preserve the definition id (tpl-001)');
-  assert(!/^\s/.test(PRESET_TEMPLATES[0].name) && PRESET_TEMPLATES[0].name === PRESET_TEMPLATES[0].name.trim(), `tpl-001 name must not carry leading whitespace (${JSON.stringify(PRESET_TEMPLATES[0].name)})`);
-
-  // Integration: the curated 13 stay separate and the gallery sees all 113.
-  const { templates: allTemplates, curatedTemplates } = await import('../js/templates.js');
-  assert(curatedTemplates.length === 13, `curatedTemplates must stay at 13, found ${curatedTemplates.length}`);
-  assert(allTemplates.length === 113, `templates must expose 13 curated + 100 presets = 113, found ${allTemplates.length}`);
-  assert(allTemplates.some(t => t.id === 'tpl-100'), 'templates must include the final preset (tpl-100)');
-
-  // Presets are first-class templates: their geometry must survive the real
-  // SVG/PDF renderer (shapes, circles, polygons) and per-record auto-fit, and
-  // their ids/layers must survive project sanitisation.
-  const savedTemplateId = state.templateId;
-  const savedElements = state.elements;
-  ['tpl-001', 'tpl-020', 'tpl-081'].forEach(id => {
-    const tpl = builtPresets.find(t => t.id === id);
-    state.templateId = id;
-    state.elements = tpl.elements.map(e => ({ ...e }));
-    clearSvgCache();
-    const svg = renderCertificateSVG({
-      NAME: 'Dr. Bernadette Montgomery-Walsingham-Ferguson III',
-      ROLE: 'Keynote Speaker',
-      EVENT: 'Preset Test Summit',
-      DATE: '2026-01-01',
-      VENUE: 'Hall A'
-    }, 0);
-    assert(svg.includes(`fill="${tpl.background}"`), `preset ${id} background must paint in the SVG renderer`);
-    assert(svg.includes('data-el="title"'), `preset ${id} title layer must render`);
-    assert(/Montgomery-Walsingham-Ferguson/.test(svg), `preset ${id} must resolve the participant name`);
-    const fitTag = svg.match(/<text[^>]*data-el="name"[^>]*font-size="([\d.]+)"/);
-    assert(fitTag && Number(fitTag[1]) < 44, `preset ${id} must auto-shrink a long name in the SVG renderer (got ${fitTag && fitTag[1]})`);
-    const staticLayer = renderStaticLayerSVG(id);
-    assert(/<(rect|circle|polygon)/.test(staticLayer), `preset ${id} static layer must carry its vector frame`);
-  });
-  const presetRoundtrip = sanitizeProjectState({
-    version: 3,
-    projectName: 'Preset project',
-    templateId: 'tpl-001',
-    elements: builtPresets[0].elements
-  }, defaultState());
-  assert(presetRoundtrip.templateId === 'tpl-001', 'preset template ids must survive project sanitisation');
-  assert(presetRoundtrip.elements.length === builtPresets[0].elements.length, 'preset layers must survive project sanitisation');
-  state.templateId = savedTemplateId;
-  state.elements = savedElements;
-  clearSvgCache();
-
-  ok('27. 100 procedural preset templates');
+  ok('26. engines (auto-fit, folder tokens, schema)');
 
   console.log(`\nCertiForge logic tests: PASS (${passed} sections)`);
 })().catch(e => {

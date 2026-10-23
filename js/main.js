@@ -1,12 +1,13 @@
 import { state, defaultState } from './state.js';
 import { loadTemplate } from './template-loader.js';
 import { saveProject, loadProjectFile, applySanitizedState } from './project.js';
-import { go, historyAction, canVisitStep } from './ui.js';
+import { go, historyAction } from './ui.js';
 import { undo, redo } from './history.js';
 import { toast, appConfirm } from './utils.js';
 import { startAutosave, restoreAutosave, clearAutosave } from './storage.js';
 import { sanitizeProjectState } from './security.js';
 import { initTheme, bindThemeToggle } from './theme.js';
+import { initWebfonts } from './webfonts.js';
 
 function setMobileMenu(open) {
   const sidebar = document.getElementById("appSidebar");
@@ -54,6 +55,9 @@ function bindShellControls() {
 
 async function init() {
   initTheme();
+  // Register the self-hosted ceremonial fonts (SIL OFL) with the document so
+  // the canvas, inspector previews and the PDF pipeline can use them.
+  initWebfonts().catch(() => {});
   const autosave = await restoreAutosave();
   if (autosave && await appConfirm("A previously unsaved project was found. Restore it?", { title: "Restore autosave", confirmLabel: "Restore" })) {
     try {
@@ -72,16 +76,7 @@ async function init() {
     loadTemplate("modern");
   }
 
-  document.querySelectorAll(".nav-item[data-step]").forEach(b => b.onclick = () => {
-    const step = b.dataset.step;
-    if (!canVisitStep(step)) {
-      if (state.rows.length) toast("Map the participant NAME column before opening this step.");
-      else toast("Upload participant data before opening this step.");
-      go(state.rows.length ? "mapping" : "data");
-      return;
-    }
-    go(step);
-  });
+  document.querySelectorAll(".nav-item[data-step]").forEach(b => b.onclick = () => go(b.dataset.step));
   bindShellControls();
   document.getElementById("saveProjectBtn").onclick = () => { saveProject(); toast("Project exported. Participant rows are intentionally not embedded."); };
   document.getElementById("openProjectBtn").onclick = () => document.getElementById("projectFileInput").click();
@@ -130,16 +125,16 @@ function openHelpDialog() {
   overlay.className = "modal-overlay";
   overlay.innerHTML = `<div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
       <button class="close-modal" aria-label="Close help">&times;</button>
-      <h2 id="helpTitle">CertiForge — Quick Start</h2>
+      <h2 id="helpTitle">Quick start</h2>
       <ol>
         <li><strong>Choose a template</strong> from the gallery.</li>
-        <li><strong>Design</strong> — edit text, drag elements, upload logos &amp; signatures.</li>
-        <li><strong>Import participants</strong> — upload XLSX, XLS, or CSV.</li>
-        <li><strong>Map fields</strong> — add event details and map participant columns.</li>
-        <li><strong>Preview</strong> — check real participant data on the certificate.</li>
-        <li><strong>Generate</strong> — create PDFs and download a ZIP archive.</li>
+        <li><strong>Design</strong>: edit text, drag elements, upload logos and signatures.</li>
+        <li><strong>Import participants</strong> from an XLSX, XLS or CSV file.</li>
+        <li><strong>Map fields</strong>: add event details and connect spreadsheet columns.</li>
+        <li><strong>Preview</strong> real participant data on the certificate.</li>
+        <li><strong>Generate</strong> the PDFs and download them as a ZIP.</li>
       </ol>
-      <div class="privacy-note">🔒 <strong>Privacy-first:</strong> All participant data is processed locally in your browser. Nothing is uploaded to any server.</div>
+      <div class="privacy-note"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg><span><strong>Private by design.</strong> Participant data is processed in your browser and never uploaded to a server.</span></div>
     </div>`;
   // Background chrome becomes inert while the dialog is open, so Tab cannot
   // escape the focus trap into the sidebar or workspace.
