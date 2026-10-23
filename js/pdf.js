@@ -4,6 +4,8 @@ import { resolveText, verificationContext } from './variables.js';
 import { getQRInstance, qrDataUrlFrom, generateQRDataUrl } from './qrcode.js';
 import { escapeHTML } from './utils.js';
 import { SAFE_FONT_DATA_URL } from './security.js';
+import { fitFontSize } from './autofit.js';
+import { cachedFontDataUrls, usedSelfHostedFamilies, onFontsEmbedReady, preloadFontDataUrls } from './webfonts.js';
 
 const esc = escapeHTML;
 
@@ -22,36 +24,8 @@ export function clearSvgCache() {
   _headerKey = null;
 }
 
-let _measureCtx = null;
-function measureCtx() {
-  if (_measureCtx === null) {
-    _measureCtx = false;
-    try {
-      if (typeof document !== 'undefined') {
-        const c = document.createElement('canvas');
-        const m = c.getContext && c.getContext('2d');
-        if (m && typeof m.measureText === 'function') _measureCtx = m;
-      }
-    } catch (_) { /* estimation fallback */ }
-  }
-  return _measureCtx || null;
-}
-
-function estimateWidth(text, size) {
-  return [...String(text)].length * size * 0.52;
-}
-
-export function textRunWidth(text, font, size, weight) {
-  const m = measureCtx();
-  if (m) {
-    try {
-      m.font = `${Number(weight) || 400} ${size}px "${font}", ${font}, sans-serif`;
-      const w = m.measureText(text).width;
-      if (Number.isFinite(w) && w >= 0) return w;
-    } catch (_) { /* fall through */ }
-  }
-  return estimateWidth(text, size);
-}
+import { textRunWidth } from './measure.js';
+export { textRunWidth };
 
 function hardBreak(token, font, size, weight, maxWidth) {
   const out = [];
@@ -96,11 +70,25 @@ export function buildSvgSkeleton(templateId, { background = true } = {}) {
   const fontDefs = (state.fonts || [])
     .filter(f => f && f.family && SAFE_FONT_DATA_URL.test(String(f.data || '').trim()))
     .map(f => `@font-face { font-family: "${esc(f.family)}"; src: url("${esc(String(f.data).trim())}"); }`);
+  // Self-hosted ceremonial families are embedded only when the design uses
+  // them, so general-purpose templates don't disable subsetting.
+  const needed = usedSelfHostedFamilies();
+  cachedFontDataUrls().forEach(f => {
+    if (!needed.has(f.family)) return;
+    fontDefs.push(`@font-face { font-family: "${esc(f.family)}"; font-weight: ${f.weight};${f.italic ? " font-style: italic;" : ""} src: url("${esc(f.dataUrl)}"); }`);
+  });
   _header = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${Number(t.page.width) || 0}" height="${Number(t.page.height) || 0}" viewBox="0 0 ${Number(t.page.width) || 0} ${Number(t.page.height) || 0}">`
     + (fontDefs.length ? `<defs><style>${fontDefs.join('\n')}</style></defs>` : '')
     + (background ? `<rect width="100%" height="100%" fill="${esc(t.background || "#ffffff")}"/>` : '');
   _headerKey = templateId + (background ? "|" : "|overlay|") + _rev;
   return _header;
+}
+
+if (typeof document !== 'undefined') {
+  // Font binaries arrive after first render; rebuild the skeleton defs once
+  // they are cached so every later rasterization embeds them.
+  preloadFontDataUrls().catch(() => {});
+  onFontsEmbedReady(() => clearSvgCache());
 }
 
 function shapeFragment(e) {
@@ -128,14 +116,19 @@ function staticFragment(e, index) {
 
 function textFragment(e, data, vc) {
   const idAttr = e.id ? ` data-el="${esc(e.id)}"` : '';
-  const size = Number(e.size) || 16;
+  const targetSize = Number(e.size) || 16;
   const weight = Number(e.weight) || 400;
   const font = String(e.font || 'Arial');
   const lineHeight = Number(e.lineHeight) || 1.25;
-  const lh = size * lineHeight;
   const boxW = Number(e.w) || 0;
   const raw = resolveText(e.text, data, vc);
+  // Smart auto-fit shrinks long values below the target size (binary search)
+  // before wrapping, so a batch never ships clipped names when it can shrink.
+  const size = e.autoFit && boxW > 0
+    ? fitFontSize({ text: raw, font, weight, size: targetSize, fitMin: e.fitMin, maxWidth: boxW }).fontSize
+    : targetSize;
   const lines = boxW > 0 ? wrapToLines(raw, font, size, weight, boxW) : String(raw).split('\n');
+  const lh = size * lineHeight;
   const align = boxW > 0 && ["left", "center", "right"].includes(e.align) ? e.align : "center";
   const anchorX = align === "left" ? (Number(e.x) || 0) - boxW / 2 : align === "right" ? (Number(e.x) || 0) + boxW / 2 : (Number(e.x) || 0);
   const anchor = align === "left" ? "start" : align === "right" ? "end" : "middle";

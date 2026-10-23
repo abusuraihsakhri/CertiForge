@@ -124,7 +124,43 @@ export function appPrompt(message, { title = "Input required", placeholder = "",
     };
     overlay._settle = (value) => settle(value === "ok" ? (String(input.value || "").trim() || null) : null);
     overlay.querySelector("#appDialogOk").onclick = () => overlay._settle("ok");
-    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); overlay._settle("ok"); } });
+    input.addEventListener("keydown", (e) => { e.key === "Enter" && (e.preventDefault(), overlay._settle("ok")); });
     input.focus();
   });
+}
+
+// Post-nominals and roman numerals that must never be Title-Cased, mapped to
+// their canonical display forms: "dr. aarav sharma, md, phd" → "Dr. Aarav Sharma, MD, PhD".
+const PRESERVED_ACRONYMS = new Map([
+  ["MD", "MD"], ["PHD", "PhD"], ["DM", "DM"], ["MCH", "MCh"], ["FRCS", "FRCS"],
+  ["MRCP", "MRCP"], ["MBBS", "MBBS"], ["AIIMS", "AIIMS"], ["II", "II"], ["III", "III"]
+]);
+
+export function toAcademicTitleCase(rawStr) {
+  return String(rawStr ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map(token => {
+      const cleanToken = token.replace(/[^a-zA-Z]/g, "").toUpperCase();
+      if (cleanToken && PRESERVED_ACRONYMS.has(cleanToken)) {
+        return token.replace(new RegExp(cleanToken, "i"), PRESERVED_ACRONYMS.get(cleanToken));
+      }
+      const rest = token.replace(/^['"“”]+|['"“”,.;:]+$/g, "");
+      if (rest) {
+        const cased = rest
+          .split("-")
+          .filter(Boolean)
+          .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+          .join("-");
+        const rebuilt = token.replace(rest, cased);
+        if (rebuilt !== token) return rebuilt;
+      }
+      return token
+        .split("-")
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join("-");
+    })
+    .join(" ");
 }

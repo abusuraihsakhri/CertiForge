@@ -121,9 +121,15 @@ async function buildJobs(rows) {
       if (!item) continue;
       const i = start + j;
       const row = rows[i];
-      const base = safeFilename(resolveText(state.settings.filename, row, item.finalCtx).replace(/\.pdf$/i, ""))
-        || item.ctx.CERTIFICATE_ID || `certificate-${i + 1}`;
-      const fullName = uniqueFilename(base, used) + ".pdf";
+      // Filenames may contain folder segments via resolved tokens, e.g.
+      // "{{ROLE}}/{{CERTIFICATE_ID}}_{{NAME}}.pdf" → "Delegates/CONF-…_X.pdf".
+      // Each segment is sanitized independently and traversal patterns ("..",
+      // "./", backslashes, drive-style names) collapse out through safeFilename.
+      const rawPattern = resolveText(state.settings.filename, row, item.finalCtx).replace(/\.pdf$/i, "");
+      const segments = rawPattern.split("/").map(s => safeFilename(s)).filter(Boolean);
+      const base = segments.pop() || item.ctx.CERTIFICATE_ID || `certificate-${i + 1}`;
+      const folder = segments.filter(s => s && s !== ".").join("/");
+      const fullName = (folder ? `${folder}/` : "") + uniqueFilename(base, used) + ".pdf";
       const registryItem = {
         id: item.ctx.CERTIFICATE_ID,
         sig: item.finalCtx.VERIFY_SIG,
@@ -572,4 +578,45 @@ export async function generateAll() {
     _cancelRequested = false;
     resumeAutosave();
   }
+}
+
+/**
+ * Print-shop master PDF: one deterministic multi-page document (page order =
+ * generation order) instead of a ZIP of singles. Uses the same two-layer
+ * render path (shared static artwork rasterized once under each record), so a
+ * master page is byte-consistent with its ZIP equivalent. Any record that
+ * cannot render aborts the whole master — a print run silently missing pages
+ * is worse than a stopped export.
+ */
+export async function buildMasterPdf({ onProgress } = {}) {
+  if (_running) throw new Error("A batch is already being generated. Wait for it to finish first.");
+  const t = getTemplate(state.templateId);
+  const rows = generationRows();
+  if (!rows.length) {
+    throw new Error("No valid participant names were found. Map the NAME field before building a master PDF.");
+  }
+  const { jobs } = await buildJobs(rows);
+  if (!jobs.length) {
+    throw new Error("All record(s) failed during signing or preparation. Check the signing secret and console for details.");
+  }
+  const scale = rasterScale();
+  let staticCanvas = null;
+  try {
+    staticCanvas = await svgToCanvas(renderStaticLayerSVG(state.templateId), scale);
+  } catch (e) {
+    console.warn('Static layer rasterization failed; master PDF uses full per-record renders.', e);
+  }
+  const pdf = newPdfForTemplate(t);
+  const orientation = t.page.orientation === "landscape" ? "landscape" : "portrait";
+  for (let i = 0; i < jobs.length; i++) {
+    const job = jobs[i];
+    const canvas = staticCanvas
+      ? await svgToCanvas(job.svg(), scale, { transparent: true, under: staticCanvas })
+      : await svgToCanvas(job.svgFull(), scale);
+    if (i > 0) pdf.addPage([t.page.width, t.page.height], orientation);
+    pdf.addImage(canvas, "PNG", 0, 0, t.page.width, t.page.height, undefined, "FAST");
+    if (typeof onProgress === "function") onProgress(i + 1, jobs.length);
+    if ((i + 1) % batchYieldEvery === 0) await yieldToUI();
+  }
+  return pdf.output("blob");
 }

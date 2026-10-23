@@ -7,8 +7,31 @@ import { snapThreshold } from './config.js';
 import { escapeHTML } from './utils.js';
 import { generateQRDataUrl } from './qrcode.js';
 import { computeAlign } from './align.js';
+import { fitFontSize } from './autofit.js';
 
 const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+
+// Per-element auto-fit results from the last canvas paint, so the inspector
+// telemetry can report the size actually used for the selected element.
+const _lastFits = new Map();
+
+function updateAutoFitTelemetry() {
+  const box = document.getElementById("autofitTelemetry");
+  if (!box || box.hidden) return;
+  const sel = state.elements.find(el => el.id === state.selectedElement);
+  const fit = sel && sel.type === "text" ? _lastFits.get(sel.id) : null;
+  if (!sel || !sel.autoFit || !fit) { box.textContent = "Uses the smallest fitted size per record."; return; }
+  if (fit.overflowed) {
+    box.classList.add("is-overflow"); box.classList.remove("is-shrunk");
+    box.innerHTML = `⚠️ Still overflows at the floor <strong>${fit.fontSize}px</strong> (${fit.measuredWidth}px &gt; ${num(sel.w)}px) — it wraps instead.`;
+  } else if (fit.shrunk) {
+    box.classList.add("is-shrunk"); box.classList.remove("is-overflow");
+    box.innerHTML = `✨ Auto-shrunk to <strong>${fit.fontSize}px</strong> to fit the ${num(sel.w)}px box`;
+  } else {
+    box.classList.remove("is-overflow", "is-shrunk");
+    box.innerHTML = `✓ Fits at target <strong>${fit.fontSize}px</strong> (${fit.measuredWidth}px / ${num(sel.w)}px)`;
+  }
+}
 
 function num(v, fallback = 0) {
   const n = Number(v);
@@ -110,10 +133,22 @@ export function renderCanvas(container, row = null, interactive = false) {
     if (e.h) el.style.height = (num(e.h) * sy) + "%";
 
     if (e.type === "text") {
-      el.textContent = resolveText(e.text, data, vc);
+      const resolved = resolveText(e.text, data, vc);
+      let displaySize = num(e.size, 16);
+      if (e.autoFit && num(e.w, 0) > 0) {
+        const fit = fitFontSize({
+          text: resolved, font: e.font, weight: num(e.weight, 400),
+          size: displaySize, fitMin: e.fitMin, maxWidth: num(e.w)
+        });
+        displaySize = fit.fontSize;
+        _lastFits.set(e.id, fit);
+      } else {
+        _lastFits.delete(e.id);
+      }
+      el.textContent = resolved;
       el.style.transform = "translate(-50%,-50%)";
       el.style.fontFamily = e.font || "Arial";
-      el.style.fontSize = `calc(${num(e.size, 16)}px * var(--cf-scale, 1))`;
+      el.style.fontSize = `calc(${displaySize}px * var(--cf-scale, 1))`;
       el.style.fontWeight = num(e.weight, 400);
       el.style.color = e.color || "#17191d";
       el.style.textAlign = ["left", "center", "right"].includes(e.align) ? e.align : "center";
@@ -198,6 +233,7 @@ export function renderCanvas(container, row = null, interactive = false) {
     container._cfObserver = new ResizeObserver(applyScale);
     container._cfObserver.observe(container);
   }
+  updateAutoFitTelemetry();
 }
 
 function nudgeElement(ev, e, t, container) {

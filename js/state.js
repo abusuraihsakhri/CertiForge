@@ -29,7 +29,7 @@ function baseDefaults() {
       INSTITUTION: "Your Institution"
     },
     certificate: { prefix: "CONF", year: String(new Date().getFullYear()), start: 1, digits: 4, separator: "-" },
-    settings: { filename: "{{CERTIFICATE_ID}}_{{NAME}}.pdf", rasterScale: 2, verifySecret: randomVerifySecret() },
+    settings: { filename: "{{CERTIFICATE_ID}}_{{NAME}}.pdf", rasterScale: 2, verifySecret: randomVerifySecret(), mergedPdf: false },
     generated: [],
     registry: [],
     history: { stack: [], index: -1 },

@@ -8,8 +8,15 @@ import { generateQRDataUrl } from './qrcode.js';
 import { resolveText, sampleRecord, verificationContext } from './variables.js';
 import { normalizeFontDataUrl, detectFontFormat, SAFE_FONT_DATA_URL } from './security.js';
 import { maxImageBytes } from './config.js';
+import { FONT_FAMILY_OPTIONS } from './webfonts.js';
+import { fitFontSize } from './autofit.js';
 
 let _lastRenderedElId = null;
+
+/** Force the inspector to rebuild on the next render (record scrubber, data changes). */
+export function setInspectorStale() {
+  _lastRenderedElId = null;
+}
 
 const WEIGHT_LABELS = { 300: "Light", 400: "Regular", 500: "Medium", 600: "Semibold", 700: "Bold", 800: "Extrabold", 900: "Black" };
 
@@ -74,6 +81,33 @@ export async function addImageFile(file) {
   _lastRenderedElId = null;
   renderCurrentEditor();
   pushHistory();
+  return e;
+}
+
+/**
+ * Add a cleaned wet-signature layer from a PNG data URL produced by the
+ * signature background remover (signature-cleaner rail section).
+ */
+export function addCleanedSignature(dataUrl, name) {
+  const src = String(dataUrl);
+  if (!SAFE_IMAGE_DATA.test(src)) throw new Error("Cleaned signature data failed security validation.");
+  const t = getTemplate(state.templateId);
+  const e = { id: uid("image"), type: "image", name: String(name || "Signature").slice(0, 60) + " (cleaned)", src, x: Math.round(t.page.width / 2), y: Math.round(t.page.height - 110), w: 160, h: 70, fit: "contain", opacity: 1 };
+  // Preserve the natural aspect ratio of the cleaned layer.
+  const probe = new Image();
+  probe.onload = () => {
+    if (!probe.naturalWidth) return;
+    e.h = Math.max(10, Math.round(e.w * probe.naturalHeight / probe.naturalWidth));
+    markDirty();
+    renderCurrentEditor();
+  };
+  probe.src = src;
+  state.elements.push(e);
+  state.selectedElement = e.id;
+  _lastRenderedElId = null;
+  renderCurrentEditor();
+  pushHistory();
+  return e;
 }
 
 export async function loadCustomFont(file) {
@@ -123,7 +157,7 @@ export function renderCurrentEditor() {
         ? (e.variable || e.text.slice(0, 24))
         : e.type === "qr" ? "QR Code"
         : (e.name || prettyId(e.id) || (e.shape === "polygon" ? "Decorative Shape" : "Shape"));
-      const tag = e.locked ? "lock" : e.type;
+      const tag = e.locked ? "lock" : (e.type === "text" && e.autoFit ? "auto-fit" : e.type);
       const idx = state.elements.indexOf(e);
       const canUp = idx < state.elements.length - 1;
       const canDown = idx > 0;
@@ -179,7 +213,7 @@ export function renderProperties() {
   }
   _lastRenderedElId = e.id;
 
-  const fontOptions = ["Arial", "Georgia", "Times New Roman", "Verdana", "Trebuchet MS"];
+  const fontOptions = ["Arial", "Georgia", "Times New Roman", "Verdana", "Trebuchet MS", ...FONT_FAMILY_OPTIONS];
   state.fonts?.forEach(f => { if (!fontOptions.includes(f.family)) fontOptions.push(f.family); });
   const fontSelect = fontOptions.map(f => `<option value="${escapeHTML(f)}" style="font-family: '${escapeHTML(f)}', sans-serif;" ${e.font === f ? 'selected' : ''}>${escapeHTML(f)}</option>`).join("");
 
@@ -214,7 +248,16 @@ export function renderProperties() {
         <div class="inspector-section-body">
           <div class="prop-row"><div class="field"><label for="propX">X</label><input id="propX" type="number"></div><div class="field"><label for="propY">Y</label><input id="propY" type="number"></div></div>
           <div class="field"><label for="propW">Width</label><input id="propW" type="number"></div>
+          <button class="btn outline-full" id="propSnapCenter" type="button">Snap horizontal center</button>
           <p class="mini-help">X/Y mark the element center; text wraps inside its width.</p>
+        </div>
+      </details>
+      <details class="inspector-section" open>
+        <summary>Smart auto-fit</summary>
+        <div class="inspector-section-body">
+          <label class="auto-fit-toggle"><input type="checkbox" id="propAutoFit" ${e.autoFit ? "checked" : ""}> Shrink long names to fit the box</label>
+          <div class="field"><label for="propFitMin">Minimum size</label><input id="propFitMin" type="number" min="4" max="200" ${e.autoFit ? "" : "disabled"} value="${e.autoFit ? (e.fitMin ?? 14) : (e.fitMin ?? 14)}"></div>
+          <div class="autofit-telemetry" id="autofitTelemetry" ${e.autoFit ? "" : "hidden"}>Auto-fit is on — the canvas reports the fitted size per record.</div>
         </div>
       </details>
       <div class="inspector-actions"><button class="btn" id="duplicateEl">Duplicate</button><button class="btn danger" id="deleteEl">Delete</button></div>
@@ -240,16 +283,45 @@ export function renderProperties() {
       e.w = clampNum(document.getElementById("propW")?.value, 20, maxX, e.w ?? 100);
       const al = document.getElementById("propAlign"); if (al) e.align = al.value;
       e.lineHeight = clampNum(document.getElementById("propLineHeight")?.value, 0.8, 4, e.lineHeight ?? 1.25);
+      const autoFitBox = document.getElementById("propAutoFit");
+      if (autoFitBox) {
+        e.autoFit = autoFitBox.checked;
+        const fitMin = document.getElementById("propFitMin");
+        if (fitMin) {
+          fitMin.disabled = !e.autoFit;
+          e.fitMin = clampNum(fitMin.value, 4, 200, e.fitMin ?? 14);
+        }
+        const telemetry = document.getElementById("autofitTelemetry");
+        if (telemetry) telemetry.hidden = !e.autoFit;
+      }
 
       repaintCanvas();
 
       const labelEl = document.querySelector(`.element-row.selected .element-item span:first-child`);
       if (labelEl) labelEl.textContent = e.variable || String(e.text || "").slice(0, 24);
+      const tagEl = document.querySelector(`.element-row.selected .element-item .tag`);
+      if (tagEl) tagEl.textContent = e.autoFit ? "auto-fit" : "text";
 
       if (saveHistory) pushHistory();
     };
 
     bindApply(Object.values(ids), apply);
+    // Auto-fit controls live outside the ids map (they toggle, not set values).
+    ["propAutoFit", "propFitMin"].forEach(fid => {
+      const el = document.getElementById(fid);
+      if (el) {
+        el.addEventListener("input", () => apply(false));
+        el.addEventListener("change", () => apply(true));
+      }
+    });
+
+    document.getElementById("propSnapCenter")?.addEventListener("click", () => {
+      e.x = Math.round(getTemplate(state.templateId).page.width / 2);
+      const x = document.getElementById("propX");
+      if (x) x.value = e.x;
+      repaintCanvas();
+      pushHistory();
+    });
 
     document.getElementById("propFont")?.addEventListener("change", (ev) => {
       if (ev.target.value === "__upload__") {

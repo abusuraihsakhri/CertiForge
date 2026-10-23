@@ -62,6 +62,8 @@ export function sanitizeElement(e) {
     n.color = String(e.color || "#17191d").replace(/[^#a-zA-Z0-9(),.%\s-]/g, "").slice(0, 48) || "#17191d";
     n.align = ["left", "center", "right"].includes(e.align) ? e.align : "center";
     n.lineHeight = clampNum(e.lineHeight, 0.8, 4, 1.25);
+    n.autoFit = Boolean(e.autoFit);
+    if (n.autoFit) n.fitMin = clampNum(e.fitMin, 4, 200, 14);
     if (e.variable) n.variable = String(e.variable).replace(/[^a-zA-Z0-9_]/g, "").slice(0, 64);
   } else if (e.type === "image") {
     n.name = safeFilename(e.name || "image").slice(0, 100);
@@ -133,7 +135,8 @@ export function sanitizeSettings(settings, defaults) {
       ? d.filename
       : defaults.filename,
     rasterScale: Math.floor(clampNum(d.rasterScale, 1, 3, 2)),
-    verifySecret: typeof d.verifySecret === "string" && d.verifySecret ? d.verifySecret.slice(0, 128) : defaults.verifySecret
+    verifySecret: typeof d.verifySecret === "string" && d.verifySecret ? d.verifySecret.slice(0, 128) : defaults.verifySecret,
+    mergedPdf: Boolean(d.mergedPdf)
   };
 }
 
